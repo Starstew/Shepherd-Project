@@ -262,32 +262,7 @@
     </select></td>
 </tr>
 
-<tr class="form_row">
-  <td class="form_label" rowspan="2"><strong><%=props.getProperty("submit_length")%>:</strong></td>
-  <td colspan="2">
-  
-  <input name="size" type="text" id="size" size="10" />
-  
-  <label> <input name="measureUnits" type="radio"
-                           value="Meters"
-                           checked="checked"/> <%=props.getProperty("submit_meters")%>
-  </label>
 
-    <label> <input type="radio" name="measureUnits" value="Feet"/>
-      <%=props.getProperty("submit_feet")%>
-    </label></td>
-</tr>
-<tr id="measure_method">
-  <td colspan="2"><label><%=props.getProperty("submit_howmeasure")%>
-    <select name="guess" id="guess">
-      <option value="submitter's guess"><%=props.getProperty("submit_personalguess")%>
-      </option>
-      <option value="guide/researcher's guess"><%=props.getProperty("submit_guessofguide")%>
-      </option>
-      <option value="directly measured"><%=props.getProperty("submit_directlymeasured")%>
-      </option>
-    </select> </label></td>
-</tr>
 
 
 <tr class="form_row">
@@ -302,46 +277,15 @@
                    checked="checked"/> <%=props.getProperty("submit_unknown")%>
     </label></td>
 </tr>
-<%
 
-if(CommonConfiguration.showProperty("showTaxonomy")){
-
-%>
-<tr class="form_row">
-  <td class="form_label"><strong><%=props.getProperty("species")%>:</strong></td>
-  <td colspan="2">
-  <select name="genusSpecies" id="genusSpecies">
-  <%
-  			       boolean hasMoreTax=true;
-  			       int taxNum=0;
-  			       if(CommonConfiguration.showProperty("showTaxonomy")){
-  			       while(hasMoreTax){
-  			       	  String currentGenuSpecies = "genusSpecies"+taxNum;
-  			       	  if(CommonConfiguration.getProperty(currentGenuSpecies)!=null){
-  			       	  	%>
-  			       	  	 
-  			       	  	  <option value="<%=CommonConfiguration.getProperty(currentGenuSpecies)%>"><%=CommonConfiguration.getProperty(currentGenuSpecies)%></option>
-  			       	  	<%
-  			       		taxNum++;
-  			          }
-  			          else{
-  			             hasMoreTax=false;
-  			          }
-  			          
-			       }
-			       }
- %>
-  </select></td>
-</tr>
-<%
-}
-%>
 
 <tr class="form_row">
   <td class="form_label" rowspan="3"><strong><font
     color="#CC0000"><%=props.getProperty("submit_location")%>:</font></strong></td>
-  <td colspan="2"><input name="location" type="text" id="location"
-                         size="40"/></td>
+  <td colspan="2"><input name="location" type="text" id="location" size="40"/> <br />
+  	<em>Examples: "near town", "near airport", "Gordon Point tourist region", "Bird Cove", etc.</em>
+		
+                         </td>
 </tr>
 <tr class="form_row">
 		<td class="form_label1"><strong><%=props.getProperty("submit_gpslatitude")%>:</strong></td>
@@ -364,35 +308,7 @@ if(CommonConfiguration.showProperty("showTaxonomy")){
 		</td>
 	</tr>
 
-<%
-if(CommonConfiguration.showProperty("maximumDepthInMeters")){
-%>
-<tr class="form_row">
-  <td class="form_label"><strong><%=props.getProperty("submit_depth")%>:</strong></td>
-  <td colspan="2">
-<input name="depth" type="text" id="depth" size="10" />
-  <br/>
-    <em>&nbsp;<%=props.getProperty("submit_usesameunits")%>
-    </em></td>
-</tr>
-<%
-}
-%>
 
-<%
-if(CommonConfiguration.showProperty("maximumElevationInMeters")){
-%>
-<tr class="form_row">
-  <td class="form_label"><strong><%=props.getProperty("submit_elevation")%>:</strong></td>
-  <td colspan="2">
-<input name="elevation" type="text" id="elevation" size="10" />
-  <br/>
-    <em>&nbsp;<%=props.getProperty("submit_usesameunits")%>
-    </em></td>
-</tr>
-<%
-}
-%>
 
 <tr class="form_row">
   <td class="form_label"><strong>Status:</strong></td>
@@ -463,7 +379,7 @@ if(CommonConfiguration.showProperty("maximumElevationInMeters")){
 
   <tr>
     <td colspan="4"><br><strong>Other email addresses
-      to inform of resightings and status*</strong><br><input
+      to inform of resightings and status</strong><br><input
       name="informothers" type="text" id="informothers" size="75"/>
     </td>
   </tr>
@@ -472,7 +388,7 @@ if(CommonConfiguration.showProperty("maximumElevationInMeters")){
   fields, using commas as separators</em>.</p>
 <hr>
 
-<p><%=props.getProperty("submit_pleaseadd")%>
+<p><em>*</em><%=props.getProperty("submit_pleaseadd")%>
 </p>
 
 <p>&nbsp;</p>

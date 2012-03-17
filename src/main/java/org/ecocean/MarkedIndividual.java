@@ -163,14 +163,7 @@ public class MarkedIndividual {
         }
 
       }
-    for(int d=0;d<numUnidentifiableEncounters;d++) {
-      Encounter temp=(Encounter)unidentifiableEncounters.get(d);
-      if((temp.getDWCDecimalLatitude()!=null)&&(temp.getDWCDecimalLongitude()!=null)) {
 
-        haveData.add(temp);
-        }
-
-      }
     return haveData;
 
   }
@@ -627,6 +620,15 @@ public class MarkedIndividual {
       }
     }
     return lowestYear;
+  }
+  
+  public long getEarliestSightingTime() {
+    long lowestTime = GregorianCalendar.getInstance().getTimeInMillis();
+    for (int c = 0; c < encounters.size(); c++) {
+      Encounter temp = (Encounter) encounters.get(c);
+      if (temp.getDateInMilliseconds() < lowestTime) lowestTime = temp.getDateInMilliseconds();
+    }
+    return lowestTime;
   }
 
   public String getSeriesCode() {

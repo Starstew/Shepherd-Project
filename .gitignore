@@ -13,3 +13,5 @@ src/main/webapp/encounters/*20*
 /changedfiles.txt
 /buildExam.txt
 /shepherd_sqllite_database
+/buildOut.txt
+/src/main/shepherd_data_dir

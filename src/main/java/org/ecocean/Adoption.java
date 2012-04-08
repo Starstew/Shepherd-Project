@@ -19,11 +19,14 @@
 
 package org.ecocean;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
 /**
  * COmment
  *
  * @author jholmber
  */
+@XmlRootElement
 public class Adoption implements java.io.Serializable {
   static final long serialVersionUID = -1020952058521486782L;
 

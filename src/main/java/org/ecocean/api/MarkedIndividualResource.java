@@ -20,37 +20,41 @@
 package org.ecocean.api;
 
 import com.sun.jersey.api.NotFoundException;
-import org.ecocean.Encounter;
+import org.ecocean.MarkedIndividual;
 import org.ecocean.ShepherdPMF;
 
 import javax.jdo.Extent;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
-import javax.ws.rs.*;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import java.util.Collection;
 
 /**
  * @author mmcbride
  */
-@Path("/encounters/{catalogNumber}.json")
-public class EncounterResource {
+@Path("/marked_individuals/{individualID}.json")
+public class MarkedIndividualResource {
   @GET
   @Produces("application/json")
-  public Encounter getEncounter(@PathParam("catalogNumber") String catalogNumber) throws Exception {
+  public MarkedIndividual getMarkedIndividual(@PathParam("individualID") String individualID) throws Exception {
     PersistenceManager pm = ShepherdPMF.getPMF().getPersistenceManager();
-    Extent<Encounter> encClass= pm.getExtent(Encounter.class, true);
-    Query acceptedEncounters = pm.newQuery(encClass);
-    acceptedEncounters.setFilter("catalogNumber == '" + catalogNumber + "'");
-    Object o = acceptedEncounters.execute();
+    Extent<MarkedIndividual> encClass= pm.getExtent(MarkedIndividual.class, true);
+    Query individuals = pm.newQuery(encClass);
+    individuals.setFilter("individualID == '" + individualID + "'");
+    Object o = individuals.execute();
     if (o instanceof Collection) {
-      Collection<Encounter> candidates = ((Collection<Encounter>)o);
+      Collection<MarkedIndividual> candidates = ((Collection<MarkedIndividual>)o);
       if (candidates.size() > 0) {
         return candidates.iterator().next();
       } else {
-        throw new NotFoundException("no encounters matching catalog number " + catalogNumber);
+        throw new NotFoundException("no individuals matching catalog id " + individualID);
       }
     } else {
-      throw new Exception("got a non-encounter collection from query layer");
+      throw new Exception("got a non-individual collection from query layer");
     }
   }
+
 }

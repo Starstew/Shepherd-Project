@@ -34,6 +34,7 @@ import org.ecocean.tag.AcousticTag;
 import org.ecocean.tag.MetalTag;
 import org.ecocean.tag.SatelliteTag;
 
+import javax.jdo.annotations.*;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 
@@ -226,7 +227,6 @@ public class Encounter implements java.io.Serializable {
 
     resetDateInMilliseconds();
   }
-
 
   /**
    * Returns an array of all of the superSpots for this encounter.
@@ -945,6 +945,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getRightmostSpot() {
     double rightest = 0;
+    if (spots == null) return rightest;
     for (int iter = 0; iter < spots.size(); iter++) {
       if (spots.get(iter).getTheSpot().getCentroidX() > rightest) {
         rightest = spots.get(iter).getTheSpot().getCentroidX();
@@ -955,6 +956,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getLeftmostSpot() {
     double leftest = getRightmostSpot();
+    if (spots == null) return leftest;
     for (int iter = 0; iter < spots.size(); iter++) {
       if (spots.get(iter).getTheSpot().getCentroidX() < leftest) {
         leftest = spots.get(iter).getTheSpot().getCentroidX();
@@ -965,6 +967,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getHighestSpot() {
     double highest = getLowestSpot();
+    if (spots == null) return highest;
     for (int iter = 0; iter < spots.size(); iter++) {
       if (spots.get(iter).getTheSpot().getCentroidY() < highest) {
         highest = spots.get(iter).getTheSpot().getCentroidY();
@@ -975,6 +978,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getLowestSpot() {
     double lowest = 0;
+    if (spots == null) return lowest;
     for (int iter = 0; iter < spots.size(); iter++) {
       if (spots.get(iter).getTheSpot().getCentroidY() > lowest) {
         lowest = spots.get(iter).getTheSpot().getCentroidY();
@@ -1031,6 +1035,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getRightmostRightSpot() {
     double rightest = 0;
+    if (rightSpots == null) return rightest;
     for (int iter = 0; iter < rightSpots.size(); iter++) {
       if (rightSpots.get(iter).getTheSpot().getCentroidX() > rightest) {
         rightest = rightSpots.get(iter).getTheSpot().getCentroidX();
@@ -1042,6 +1047,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getLeftmostRightSpot() {
     double leftest = getRightmostRightSpot();
+    if (rightSpots == null) return leftest;
     for (int iter = 0; iter < rightSpots.size(); iter++) {
       if (rightSpots.get(iter).getTheSpot().getCentroidX() < leftest) {
         leftest = rightSpots.get(iter).getTheSpot().getCentroidX();
@@ -1052,6 +1058,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getHighestRightSpot() {
     double highest = getLowestRightSpot();
+    if (rightSpots == null) return highest;
     for (int iter = 0; iter < rightSpots.size(); iter++) {
       if (rightSpots.get(iter).getTheSpot().getCentroidY() < highest) {
         highest = rightSpots.get(iter).getTheSpot().getCentroidY();
@@ -1062,6 +1069,7 @@ public class Encounter implements java.io.Serializable {
 
   public double getLowestRightSpot() {
     double lowest = 0;
+    if (rightSpots == null) return lowest;
     for (int iter = 0; iter < rightSpots.size(); iter++) {
       if (rightSpots.get(iter).getTheSpot().getCentroidY() > lowest) {
         lowest = rightSpots.get(iter).getTheSpot().getCentroidY();
@@ -1768,8 +1776,8 @@ public class Encounter implements java.io.Serializable {
    */
   public String getHaplotype() {
     //List<TissueSample> tissueSamples=getCollectedDataOfClass(TissueSample.class);
-    int numTissueSamples = tissueSamples.size();
-    if (numTissueSamples > 0) {
+    if (tissueSamples != null && tissueSamples.size()> 0) {
+      int numTissueSamples = tissueSamples.size();
       for (int j = 0; j < numTissueSamples; j++) {
         TissueSample thisSample = tissueSamples.get(j);
         int numAnalyses = thisSample.getNumAnalyses();

@@ -19,38 +19,44 @@
 
 package org.ecocean.api;
 
-import com.sun.jersey.api.NotFoundException;
-import org.ecocean.Encounter;
+import org.ecocean.MarkedIndividual;
 import org.ecocean.ShepherdPMF;
 
 import javax.jdo.Extent;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
 import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
 import java.util.Collection;
 
 /**
  * @author mmcbride
  */
-@Path("/encounters/{catalogNumber}.json")
-public class EncounterResource {
+@Path("/marked_individuals.json")
+public class MarkedIndividualsResource {
   @GET
   @Produces("application/json")
-  public Encounter getEncounter(@PathParam("catalogNumber") String catalogNumber) throws Exception {
+  public Collection<MarkedIndividual> getMarkedIndividuals() throws Exception {
     PersistenceManager pm = ShepherdPMF.getPMF().getPersistenceManager();
-    Extent<Encounter> encClass= pm.getExtent(Encounter.class, true);
-    Query acceptedEncounters = pm.newQuery(encClass);
-    acceptedEncounters.setFilter("catalogNumber == '" + catalogNumber + "'");
-    Object o = acceptedEncounters.execute();
+    Extent<MarkedIndividual> encClass= pm.getExtent(MarkedIndividual.class, true);
+    Query individuals = pm.newQuery(encClass);
+    Object o = individuals.execute();
     if (o instanceof Collection) {
-      Collection<Encounter> candidates = ((Collection<Encounter>)o);
-      if (candidates.size() > 0) {
-        return candidates.iterator().next();
-      } else {
-        throw new NotFoundException("no encounters matching catalog number " + catalogNumber);
-      }
+      return (Collection<MarkedIndividual>)o;
     } else {
       throw new Exception("got a non-encounter collection from query layer");
     }
+  }
+
+  @POST
+  @Produces("application/json")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  public void newMarkedIndividual(@FormParam("individual_id") String id,
+                                  @FormParam("alternate_id") String alternate_id,
+                                  @FormParam("comments") String comments) {
+    MarkedIndividual m = new MarkedIndividual();
+    m.setIndividualID(id);
+    m.setAlternateID(alternate_id);
+    m.addComments(comments);
   }
 }

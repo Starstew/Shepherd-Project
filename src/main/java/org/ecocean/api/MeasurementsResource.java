@@ -19,38 +19,34 @@
 
 package org.ecocean.api;
 
-import com.sun.jersey.api.NotFoundException;
-import org.ecocean.Encounter;
+import org.ecocean.Measurement;
 import org.ecocean.ShepherdPMF;
 
 import javax.jdo.Extent;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
-import javax.ws.rs.*;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import java.util.Collection;
 
 /**
  * @author mmcbride
  */
-@Path("/encounters/{catalogNumber}.json")
-public class EncounterResource {
+@Path("/measurements.json")
+public class MeasurementsResource {
   @GET
   @Produces("application/json")
-  public Encounter getEncounter(@PathParam("catalogNumber") String catalogNumber) throws Exception {
+  public Collection<Measurement> getMeasurements() throws Exception {
     PersistenceManager pm = ShepherdPMF.getPMF().getPersistenceManager();
-    Extent<Encounter> encClass= pm.getExtent(Encounter.class, true);
-    Query acceptedEncounters = pm.newQuery(encClass);
-    acceptedEncounters.setFilter("catalogNumber == '" + catalogNumber + "'");
-    Object o = acceptedEncounters.execute();
+    Extent<Measurement> encClass= pm.getExtent(Measurement.class, true);
+    Query measurements = pm.newQuery(encClass);
+    Object o = measurements.execute();
     if (o instanceof Collection) {
-      Collection<Encounter> candidates = ((Collection<Encounter>)o);
-      if (candidates.size() > 0) {
-        return candidates.iterator().next();
-      } else {
-        throw new NotFoundException("no encounters matching catalog number " + catalogNumber);
-      }
+      return (Collection<Measurement>)o;
     } else {
-      throw new Exception("got a non-encounter collection from query layer");
+      throw new Exception("got a non-measurement collection from query layer");
     }
   }
+
 }

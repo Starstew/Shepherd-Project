@@ -23,6 +23,8 @@ import java.util.*;
 import java.util.GregorianCalendar;
 import org.ecocean.genetics.*;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
 /**
  * A <code>MarkedIndividual</code> object stores the complete <code>encounter</code> data for a single marked individual in a mark-recapture study.
  * <code>Encounters</code> are added to MarkedIndividual objects as multiple encounters are associated with
@@ -33,6 +35,7 @@ import org.ecocean.genetics.*;
  * @version 2.0
  * @see Encounter, Shepherd
  */
+@XmlRootElement
 public class MarkedIndividual {
 
   //unique name of the MarkedIndividual, such as 'A-109'

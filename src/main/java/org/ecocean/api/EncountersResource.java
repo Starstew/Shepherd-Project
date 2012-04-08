@@ -19,38 +19,53 @@
 
 package org.ecocean.api;
 
-import com.sun.jersey.api.NotFoundException;
 import org.ecocean.Encounter;
 import org.ecocean.ShepherdPMF;
+import org.ecocean.SinglePhotoVideo;
 
 import javax.jdo.Extent;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
+import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.ArrayList;
 import java.util.Collection;
 
 /**
  * @author mmcbride
  */
-@Path("/encounters/{catalogNumber}.json")
-public class EncounterResource {
+@Path("/encounters.json")
+public class EncountersResource {
   @GET
   @Produces("application/json")
-  public Encounter getEncounter(@PathParam("catalogNumber") String catalogNumber) throws Exception {
+  public Collection<Encounter> getEncounters() throws Exception {
     PersistenceManager pm = ShepherdPMF.getPMF().getPersistenceManager();
-    Extent<Encounter> encClass= pm.getExtent(Encounter.class, true);
+    Extent<Encounter> encClass = pm.getExtent(Encounter.class, true);
     Query acceptedEncounters = pm.newQuery(encClass);
-    acceptedEncounters.setFilter("catalogNumber == '" + catalogNumber + "'");
     Object o = acceptedEncounters.execute();
     if (o instanceof Collection) {
-      Collection<Encounter> candidates = ((Collection<Encounter>)o);
-      if (candidates.size() > 0) {
-        return candidates.iterator().next();
-      } else {
-        throw new NotFoundException("no encounters matching catalog number " + catalogNumber);
-      }
+      return (Collection<Encounter>) o;
     } else {
       throw new Exception("got a non-encounter collection from query layer");
     }
+  }
+
+  @POST
+  @Produces("application/json")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  public Encounter postEncounter(@FormParam("day") int day,
+                                 @FormParam("month") int month,
+                                 @FormParam("year") int year,
+                                 @FormParam("hour") int hour,
+                                 @FormParam("minutes") String minutes,
+                                 @FormParam("size_guess") String size_guess,
+                                 @FormParam("location") String location,
+                                 @FormParam("submitter_name") String submitterName,
+                                 @FormParam("submitter_email") String submitterEmail,
+                                 @Context HttpServletResponse servletResponse
+  ) throws Exception {
+    return new Encounter(day, month, year, hour, minutes, size_guess, location, submitterName, submitterEmail, new ArrayList<SinglePhotoVideo>());
   }
 }

@@ -19,6 +19,7 @@
         <datanucleus.jpa.version>2.1.8</datanucleus.jpa.version>
         <datanucleus.lib.scope>compile</datanucleus.lib.scope>
         <geotools.version>2.7.0</geotools.version>
+        <jersey.version>1.12</jersey.version>
     </properties>
 
     <repositories>
@@ -241,18 +242,24 @@
         <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-server</artifactId>
-            <version>1.11</version>
+            <version>${jersey.version}</version>
         </dependency>
         <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-servlet</artifactId>
-            <version>1.11</version>
+            <version>${jersey.version}</version>
         </dependency>
         <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-json</artifactId>
-            <version>1.11</version>
+            <version>${jersey.version}</version>
         </dependency>
+      <dependency>
+          <groupId>com.sun.jersey.jersey-test-framework</groupId>
+          <artifactId>jersey-test-framework-external</artifactId>
+          <version>${jersey.version}</version>
+          <scope>test</scope>
+      </dependency>
     </dependencies>
 
     <build>

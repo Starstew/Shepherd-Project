@@ -152,7 +152,7 @@ public class EncounterSearchExportExcelFile extends HttpServlet{
         sheet.addCell(label28);
         Label label29 = new Label(29, 0, "Location ID");
         sheet.addCell(label29);
-        Label label30 = new Label(30, 0, "Submitter Email Address");
+        Label label30 = new Label(30, 0, "Contact Email Address");
         sheet.addCell(label30);
         
         // Excel export =========================================================

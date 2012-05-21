@@ -1,0 +1,32 @@
+{
+  "size": 10,
+  "depth": 10,
+  "elevation": 10,
+  "measure_units": "feet",
+  "location": "the world",
+  "sex": "M",
+  "comments": "foo",
+  "submitter" : {
+    "name": "Mark",
+    "email" : "foo@foo.com"
+  },
+  "photographer" : {
+    "name": "Mark",
+    "email": "foo@foo.com"
+  },
+  "living_status" : "alive",
+  "date" : "2012-03-12T00:45:00",
+  "lat" : 45,
+  "lat_direction" : "north",
+  "gps_latitude_minutes" : 1,
+  "gps_latitude_seconds" : 2,
+  "longitude" : 45,
+  "long_direction" : "east",
+  "gps_longitude_minutes" : 1,
+  "gps_longitude_seconds" : 2,
+  "inform_others" : false,
+  "genus" : "whaleus",
+  "species" : "shark",
+  "behavior" : "swimming",
+  "life_stage" : "young"
+}

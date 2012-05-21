@@ -19,6 +19,7 @@
 
 package org.ecocean.servlet;
 
+import jxl.StringFormulaCell;
 import org.apache.struts.action.Action;
 import org.apache.struts.action.ActionForm;
 import org.apache.struts.action.ActionForward;
@@ -53,37 +54,35 @@ import org.slf4j.LoggerFactory;
 public class SubmitAction extends Action {
 
 
-
   public ActionForward execute(ActionMapping mapping,
                                ActionForm form,
                                HttpServletRequest request,
                                HttpServletResponse response)
-    throws Exception {
+          throws Exception {
 
-		  String mailList = "no";
-		  Calendar date = Calendar.getInstance();
-		  Random ran = new Random();
-		  String uniqueID = (new Integer(date.get(Calendar.DAY_OF_MONTH))).toString() + (new Integer(date.get(Calendar.MONTH) + 1)).toString() + (new Integer(date.get(Calendar.YEAR))).toString() + (new Integer(date.get(Calendar.HOUR_OF_DAY))).toString() + (new Integer(date.get(Calendar.MINUTE))).toString() + (new Integer(date.get(Calendar.SECOND))).toString() + (new Integer(ran.nextInt(99))).toString();
-		  String size = "";
-		  String elevation = "";
-		  String depth = "";
-		  String behavior="";
-		  String lifeStage="";
-		  String measureUnits = "", location = "", sex = "unknown", comments = "", primaryImageName = "", guess = "no estimate provided";
-		  String submitterName = "", submitterEmail = "", submitterPhone = "", submitterAddress = "", submitterOrganization="", submitterProject="";
-		  String photographerName = "", photographerEmail = "", photographerPhone = "", photographerAddress = "";
-		  //Vector additionalImageNames = new Vector();
-		  ArrayList<SinglePhotoVideo> images=new ArrayList<SinglePhotoVideo>();
+    String mailList = "no";
+    Calendar date = Calendar.getInstance();
+    Random ran = new Random();
+    String uniqueID = (new Integer(date.get(Calendar.DAY_OF_MONTH))).toString() + (new Integer(date.get(Calendar.MONTH) + 1)).toString() + (new Integer(date.get(Calendar.YEAR))).toString() + (new Integer(date.get(Calendar.HOUR_OF_DAY))).toString() + (new Integer(date.get(Calendar.MINUTE))).toString() + (new Integer(date.get(Calendar.SECOND))).toString() + (new Integer(ran.nextInt(99))).toString();
+    String size = "";
+    String elevation = "";
+    String depth = "";
+    String behavior = "";
+    String lifeStage = "";
+    String measureUnits = "", location = "", sex = "unknown", comments = "", primaryImageName = "", guess = "no estimate provided";
+    String submitterName = "", submitterEmail = "", submitterPhone = "", submitterAddress = "", submitterOrganization = "", submitterProject = "";
+    String photographerName = "", photographerEmail = "", photographerPhone = "", photographerAddress = "";
+    //Vector additionalImageNames = new Vector();
+    ArrayList<SinglePhotoVideo> images = new ArrayList<SinglePhotoVideo>();
 
-		  int encounterNumber = 0;
-		  int day = 1, month = 1, year = 2003, hour = 12;
-		  String lat = "", longitude = "", latDirection = "", longDirection = "", scars = "None";
-		  String minutes = "00", gpsLongitudeMinutes = "", gpsLongitudeSeconds = "", gpsLatitudeMinutes = "", gpsLatitudeSeconds = "", submitterID = "N/A";
-		  String locCode = "", informothers = "";
-		  String livingStatus = "";
-		  String genusSpecies="";
-  		  Shepherd myShepherd;
-
+    int encounterNumber = 0;
+    int day = 1, month = 1, year = 2003, hour = 12;
+    String lat = "", longitude = "", latDirection = "", longDirection = "", scars = "None";
+    String minutes = "00", gpsLongitudeMinutes = "", gpsLongitudeSeconds = "", gpsLatitudeMinutes = "", gpsLatitudeSeconds = "", submitterID = "N/A";
+    String locCode = "", informothers = "";
+    String livingStatus = "";
+    String genusSpecies = "";
+    Shepherd myShepherd;
 
 
     myShepherd = new Shepherd();
@@ -104,27 +103,29 @@ public class SubmitAction extends Action {
       date = theForm.getDate();
       uniqueID = theForm.getUniqueID();
 
-      if((theForm.getSize()!=null)&&(!theForm.getSize().equals(""))){size = theForm.getSize();}
+      if ((theForm.getSize() != null) && (!theForm.getSize().equals(""))) {
+        size = theForm.getSize();
+      }
 
 
-      if((theForm.getDepth()!=null)&&(!theForm.getDepth().equals(""))){
-      	depth = theForm.getDepth();
-  	  }
+      if ((theForm.getDepth() != null) && (!theForm.getDepth().equals(""))) {
+        depth = theForm.getDepth();
+      }
 
-      if((theForm.getElevation()!=null)&&(!theForm.getElevation().equals(""))){
+      if ((theForm.getElevation() != null) && (!theForm.getElevation().equals(""))) {
 
-      	elevation = theForm.getElevation();
-  	  }
+        elevation = theForm.getElevation();
+      }
 
       measureUnits = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getMeasureUnits());
       location = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getLocation());
       System.out.println("SubmitAction location: " + location);
       sex = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getSex());
       comments = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getComments());
-      if(theForm.getBehavior()!=null){
-      	behavior = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getBehavior());
-  	  }
-      if(theForm.getLifeStage()!=null){
+      if (theForm.getBehavior() != null) {
+        behavior = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getBehavior());
+      }
+      if (theForm.getLifeStage() != null) {
         lifeStage = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getLifeStage());
       }
       primaryImageName = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getPrimaryImageName());
@@ -154,7 +155,9 @@ public class SubmitAction extends Action {
       spamFields.append(theForm.getPhotographerName());
       spamFields.append(theForm.getLocation());
       spamFields.append(theForm.getComments());
-      if(theForm.getBehavior()!=null){spamFields.append(theForm.getBehavior());}
+      if (theForm.getBehavior() != null) {
+        spamFields.append(theForm.getBehavior());
+      }
 
 
       if (spamFields.toString().toLowerCase().indexOf("porn") != -1) {
@@ -310,14 +313,18 @@ public class SubmitAction extends Action {
       String data = null;
 
       //File encountersDir = new File(getServlet().getServletContext().getRealPath("/encounters"));
-     
+
       String rootWebappPath = getServlet().getServletContext().getRealPath("/");
       File webappsDir = new File(rootWebappPath).getParentFile();
       File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName());
-      if(!shepherdDataDir.exists()){shepherdDataDir.mkdir();}
-      
-      File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
-      if(!encountersDir.exists()){encountersDir.mkdir();}
+      if (!shepherdDataDir.exists()) {
+        shepherdDataDir.mkdir();
+      }
+
+      File encountersDir = new File(shepherdDataDir.getAbsolutePath() + "/encounters");
+      if (!encountersDir.exists()) {
+        encountersDir.mkdir();
+      }
       File thisEncounterDir = new File(encountersDir, uniqueID);
 
       boolean created = false;
@@ -350,10 +357,10 @@ public class SubmitAction extends Action {
                 data = new String(baos.toByteArray());
               } else {
                 data = new String("The file is greater than 4MB or less than 1 byte, " +
-                  " and has not been written to stream." +
-                  " File Size: " + file[iter].getFileSize() + " bytes. This is a" +
-                  " limitation of this particular web application, hard-coded" +
-                  " in org.apache.struts.webapp.upload.UploadAction");
+                        " and has not been written to stream." +
+                        " File Size: " + file[iter].getFileSize() + " bytes. This is a" +
+                        " limitation of this particular web application, hard-coded" +
+                        " in org.apache.struts.webapp.upload.UploadAction");
               }
             } else if ((!(file[iter].getFileName().equals(""))) && (file[iter].getFileSize() > 0)) {
               //write the file to the file specified
@@ -366,8 +373,8 @@ public class SubmitAction extends Action {
               }
               //System.out.println(writeName);
               //additionalImageNames.add(writeName);
-              File writeMe=new File(thisEncounterDir, writeName);
-              images.add(new SinglePhotoVideo(uniqueID,writeMe));
+              File writeMe = new File(thisEncounterDir, writeName);
+              images.add(new SinglePhotoVideo(uniqueID, writeMe));
               OutputStream bos = new FileOutputStream(writeMe);
               int bytesRead = 0;
               byte[] buffer = new byte[8192];
@@ -407,10 +414,10 @@ public class SubmitAction extends Action {
           enc.addComments("<p>Reported release date was problematic: " + dateStr + "</p>");
         }
       }
-      if(theForm.getBehavior()!=null){
-  			enc.setBehavior(behavior);
-  		}
-      if(theForm.getLifeStage()!=null){
+      if (theForm.getBehavior() != null) {
+        enc.setBehavior(behavior);
+      }
+      if (theForm.getLifeStage() != null) {
         enc.setLifeStage(lifeStage);
       }
       Map<String, Object> measurements = theForm.getMeasurements();
@@ -424,8 +431,7 @@ public class SubmitAction extends Action {
               String samplingProtocol = (String) measurements.get(key + "samplingProtocol");
               Measurement measurement = new Measurement(enc.getEncounterNumber(), key, doubleVal, units, samplingProtocol);
               enc.addMeasurement(measurement);
-            }
-            catch(Exception ex) {
+            } catch (Exception ex) {
               enc.addComments("<p>Reported measurement " + key + " was problematic: " + value + "</p>");
             }
           }
@@ -443,126 +449,103 @@ public class SubmitAction extends Action {
       //let's handle genus and species for taxonomy
       try {
 
-	  		String genus="";
-	  		String specificEpithet = "";
+        String genus = "";
+        String specificEpithet = "";
 
-	  		//now we have to break apart genus species
-	  		StringTokenizer tokenizer=new StringTokenizer(genusSpecies," ");
-	  		if(tokenizer.countTokens()==2){
+        //now we have to break apart genus species
+        StringTokenizer tokenizer = new StringTokenizer(genusSpecies, " ");
+        if (tokenizer.countTokens() == 2) {
 
-	          	enc.setGenus(tokenizer.nextToken());
-	          	enc.setSpecificEpithet(tokenizer.nextToken());
+          enc.setGenus(tokenizer.nextToken());
+          enc.setSpecificEpithet(tokenizer.nextToken());
 
-	  	    }
-	  	    //handle malformed Genus Species formats
-	  	    else{throw new Exception("The format of the submitted genusSpecies parameter did not have two tokens delimited by a space (e.g., \"Rhincodon typus\"). The submitted value was: "+genusSpecies);}
+        }
+        //handle malformed Genus Species formats
+        else {
+          throw new Exception("The format of the submitted genusSpecies parameter did not have two tokens delimited by a space (e.g., \"Rhincodon typus\"). The submitted value was: " + genusSpecies);
+        }
 
-	   }
-	   catch (Exception le) {
+      } catch (Exception le) {
 
-       }
+      }
 
 
       enc.setDistinguishingScar(scars);
-      int sizePeriod=0;
+      int sizePeriod = 0;
       if ((measureUnits.equals("Feet"))) {
 
-        if(!depth.equals("")){
-			try{
-				double tempDouble=(new Double(depth)).doubleValue()/3.3;
-        		String truncDepth = (new Double(tempDouble)).toString();
-        		sizePeriod = truncDepth.indexOf(".");
-        		truncDepth = truncDepth.substring(0, sizePeriod + 2);
-        		depth = (new Double(truncDepth)).toString();
-			}
-			catch(java.lang.NumberFormatException nfe){
-				enc.addComments("<p>Reported depth was problematic: " + depth + "</p>");
-				depth="";
-			}
-			catch(NullPointerException npe){
-				depth="";
-			}
-		}
+        if (!depth.equals("")) {
+          try {
+            double tempDouble = (new Double(depth)).doubleValue() / 3.3;
+            depth = String.format("%.0f", tempDouble);
+          } catch (java.lang.NumberFormatException nfe) {
+            enc.addComments("<p>Reported depth was problematic: " + depth + "</p>");
+            depth = "";
+          } catch (NullPointerException npe) {
+            depth = "";
+          }
+        }
 
-		if(!elevation.equals("")){
-			try{
-				double tempDouble=(new Double(elevation)).doubleValue()/3.3;
-        		String truncElev = (new Double(tempDouble)).toString();
-				//String truncElev = ((new Double(elevation)) / 3.3).toString();
-		    	sizePeriod = truncElev.indexOf(".");
-				truncElev = truncElev.substring(0, sizePeriod + 2);
-        		elevation = (new Double(truncElev)).toString();
-			}
-			catch(java.lang.NumberFormatException nfe){
-				enc.addComments("<p>Reported elevation was problematic: " + elevation + "</p>");
-				elevation="";
-			}
-			catch(NullPointerException npe){
-				elevation="";
-			}
-		}
-		if(!size.equals("")){
+        if (!elevation.equals("")) {
+          try {
+            double tempDouble = (new Double(elevation)).doubleValue() / 3.3;
+            elevation = String.format("%.0f", tempDouble);
+          } catch (java.lang.NumberFormatException nfe) {
+            enc.addComments("<p>Reported elevation was problematic: " + elevation + "</p>");
+            elevation = "";
+          } catch (NullPointerException npe) {
+            elevation = "";
+          }
+        }
+        if (!size.equals("")) {
 
 
+          try {
+            double tempDouble = (new Double(size)).doubleValue() / 3.3;
+            size = String.format("%.0f", tempDouble);
+          } catch (java.lang.NumberFormatException nfe) {
 
-			try{
-					double tempDouble=(new Double(size)).doubleValue()/3.3;
-        			String truncSize = (new Double(tempDouble)).toString();
-					//String truncSize = ((new Double(size)) / 3.3).toString();
-				    sizePeriod = truncSize.indexOf(".");
-					truncSize = truncSize.substring(0, sizePeriod + 2);
-		        	size = (new Double(truncSize)).toString();
-			}
-			catch(java.lang.NumberFormatException nfe){
-
-				enc.addComments("<p>Reported size was problematic: " + size + "</p>");
-				size="";
-			}
-			catch(NullPointerException npe){
-				size="";
-			}
-		}
+            enc.addComments("<p>Reported size was problematic: " + size + "</p>");
+            size = "";
+          } catch (NullPointerException npe) {
+            size = "";
+          }
+        }
       }
 
       if (!size.equals("")) {
-        try{
-        	enc.setSize(new Double(size));
-        }
-					catch(java.lang.NumberFormatException nfe){
+        try {
+          enc.setSize(new Double(size));
+        } catch (java.lang.NumberFormatException nfe) {
 
-						enc.addComments("<p>Reported size was problematic: " + size + "</p>");
-						size="";
-					}
-					catch(NullPointerException npe){
-						size="";
-			}
+          enc.addComments("<p>Reported size was problematic: " + size + "</p>");
+          size = "";
+        } catch (NullPointerException npe) {
+          size = "";
+        }
       }
 
-		//System.out.println("Depth in SubmitForm is:"+depth);
+      //System.out.println("Depth in SubmitForm is:"+depth);
       if (!depth.equals("")) {
-		try{
-        	enc.setDepth(new Double(depth));
-		}
-					catch(java.lang.NumberFormatException nfe){
-						enc.addComments("<p>Reported depth was problematic: " + depth + "</p>");
-						depth="";
-					}
-					catch(NullPointerException npe){
-						depth="";
-			}
+        try {
+          enc.setDepth(new Double(depth));
+        } catch (java.lang.NumberFormatException nfe) {
+          enc.addComments("<p>Reported depth was problematic: " + depth + "</p>");
+          depth = "";
+        } catch (NullPointerException npe) {
+          depth = "";
+        }
       }
 
       if (!elevation.equals("")) {
-		try{
-	    	enc.setMaximumElevationInMeters(new Double(elevation));
-	    }
-					catch(java.lang.NumberFormatException nfe){
-						enc.addComments("<p>Reported elevation was problematic: " + elevation + "</p>");
-						elevation="";
-					}
-					catch(NullPointerException npe){
-						elevation="";
-			}
+        try {
+          enc.setMaximumElevationInMeters(new Double(elevation));
+        } catch (java.lang.NumberFormatException nfe) {
+          enc.addComments("<p>Reported elevation was problematic: " + elevation + "</p>");
+          elevation = "";
+        } catch (NullPointerException npe) {
+          elevation = "";
+        }
       }
 
 
@@ -625,17 +608,16 @@ public class SubmitAction extends Action {
       if ((longitude.equals("")) || (lat.equals(""))) {
         enc.setGPSLongitude("");
         enc.setGPSLongitude("");
-      //let's handle the GPS
+        //let's handle the GPS
         if (!(lat.equals(""))) {
 
 
-            try {
-                enc.setDWCDecimalLatitude(new Double(lat));
-            }
-            catch(Exception e) {
-              System.out.println("EncounterSetGPS: problem setting decimal latitude!");
-              e.printStackTrace();
-            }
+          try {
+            enc.setDWCDecimalLatitude(new Double(lat));
+          } catch (Exception e) {
+            System.out.println("EncounterSetGPS: problem setting decimal latitude!");
+            e.printStackTrace();
+          }
 
 
         }
@@ -643,8 +625,7 @@ public class SubmitAction extends Action {
 
           try {
             enc.setDWCDecimalLongitude(new Double(longitude));
-          }
-          catch(Exception e) {
+          } catch (Exception e) {
             System.out.println("EncounterSetGPS: problem setting decimal longitude!");
             e.printStackTrace();
           }
@@ -667,7 +648,7 @@ public class SubmitAction extends Action {
       enc.setPhotographerEmail(photographerEmail);
       enc.addComments("<p>Submitted on " + (new java.util.Date()).toString() + " from address: " + request.getRemoteHost() + "</p>");
       //enc.approved = false;
-      if(CommonConfiguration.getProperty("encounterState0")!=null){
+      if (CommonConfiguration.getProperty("encounterState0") != null) {
         enc.setState(CommonConfiguration.getProperty("encounterState0"));
       }
       if (request.getRemoteUser() != null) {
@@ -701,7 +682,7 @@ public class SubmitAction extends Action {
         newnum = myShepherd.storeNewEncounter(enc, uniqueID);
 
         Logger log = LoggerFactory.getLogger(SubmitAction.class);
-	    log.info("New encounter submission: <a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + uniqueID+"\">"+uniqueID+"</a>");
+        log.info("New encounter submission: <a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + uniqueID + "\">" + uniqueID + "</a>");
 
 
       }
@@ -745,7 +726,7 @@ public class SubmitAction extends Action {
   }
 
   private SatelliteTag getSatelliteTag(SubmitForm theForm) {
-    String argosPttNumber =  ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getSatelliteTagArgosPttNumber()).trim();
+    String argosPttNumber = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getSatelliteTagArgosPttNumber()).trim();
     String satelliteTagName = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getSatelliteTagName()).trim();
     String tagSerial = ServletUtilities.preventCrossSiteScriptingAttacks(theForm.getSatelliteTagSerial()).trim();
     if (argosPttNumber.length() > 0 || tagSerial.length() > 0) {

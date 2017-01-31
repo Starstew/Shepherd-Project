@@ -34,7 +34,10 @@ public class EncounterSetMeasurements extends HttpServlet {
   @Override
   protected void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    Shepherd myShepherd=new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd=new Shepherd(context);
+    myShepherd.setAction("EncounterSetMeasurements.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -56,12 +59,30 @@ public class EncounterSetMeasurements extends HttpServlet {
           if (requestEventValues.id == null || requestEventValues.id.trim().length() == 0) {
             // New Event -- the user didn't enter any values the first time.
             measurement = new Measurement(encNum, requestEventValues.type, requestEventValues.value, requestEventValues.units, requestEventValues.samplingProtocol);
-            enc.addMeasurement(measurement);
+            enc.setMeasurement(measurement, myShepherd);
+            //log the new measurement addition
+            enc.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>Added measurement:<br><i>" + requestEventValues.type + " "+requestEventValues.value+" "+requestEventValues.units+" ("+requestEventValues.samplingProtocol+")</i></p>");
+            
           }
           else {
+            
+            
+              
             measurement  = myShepherd.findDataCollectionEvent(Measurement.class, requestEventValues.id);
+            
+            String oldValue="null";
+            if(measurement.getValue()!=null){oldValue=measurement.getValue().toString();}
+            String oldSamplingProtocol="null";
+            if(measurement.getSamplingProtocol()!=null){oldSamplingProtocol=measurement.getSamplingProtocol();}
+            
+            //now set the new values
             measurement.setValue(requestEventValues.value);
             measurement.setSamplingProtocol(requestEventValues.samplingProtocol);
+            
+            
+            //log the measurement change -- TBD
+            enc.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>Changed measurement " + requestEventValues.type + " from "+oldValue+" ("+oldSamplingProtocol+") to "+requestEventValues.value+" "+requestEventValues.units+" ("+requestEventValues.samplingProtocol+")</i></p>");
+            
           }
 
           requestEventValues = findRequestEventValues(request, index++);
@@ -76,28 +97,31 @@ public class EncounterSetMeasurements extends HttpServlet {
         myShepherd.commitDBTransaction();
         myShepherd.closeDBTransaction();
         out.println(ServletUtilities.getHeader(request));
+        response.setStatus(HttpServletResponse.SC_OK);
         out.println("<p><strong>Success!</strong> I have successfully set the following measurement values:");
         for (RequestEventValues requestEventValue : list) {
           out.println(MessageFormat.format("<br/>{0} set to {1}", requestEventValue.type, requestEventValue.value));
         }
 
-        out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+encNum+"\">Return to encounter "+encNum+"</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        out.println("<p><a href=\""+request.getScheme()+"://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+encNum+"\">Return to encounter "+encNum+"</a></p>\n");
+        out.println(ServletUtilities.getFooter(context));
       }
       else {
         out.println(ServletUtilities.getHeader(request));
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         out.println("<strong>Failure!</strong> This encounter is currently being modified by another user, or an exception occurred. Please wait a few seconds before trying to modify this encounter again.");
 
-        out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+encNum+"\">Return to encounter "+encNum+"</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        out.println("<p><a href=\""+request.getScheme()+"://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+encNum+"\">Return to encounter "+encNum+"</a></p>\n");
+        out.println(ServletUtilities.getFooter(context));
       }
       
     }
     else {
       myShepherd.rollbackDBTransaction();
       out.println(ServletUtilities.getHeader(request));
-      out.println("<strong>Error:</strong> I was unable to set the measurements. I cannot find the encounter that you intended in the database.");
-      out.println(ServletUtilities.getFooter());
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      out.println("<strong>Error:</strong> I was unable to set the measurement(s). I cannot find the encounter that you intended in the database.");
+      out.println(ServletUtilities.getFooter(context));
 
     }
     out.close();

@@ -23,6 +23,7 @@ import com.oreilly.servlet.multipart.FilePart;
 import com.oreilly.servlet.multipart.MultipartParser;
 import com.oreilly.servlet.multipart.ParamPart;
 import com.oreilly.servlet.multipart.Part;
+
 import org.ecocean.CommonConfiguration;
 import org.ecocean.Encounter;
 import org.ecocean.Shepherd;
@@ -32,14 +33,17 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import javax.xml.bind.DatatypeConverter;
 
 /**
- * 
- * This servlet allows the user to upload an extracted, processed patterning file that corresponds to 
+ *
+ * This servlet allows the user to upload an extracted, processed patterning file that corresponds to
  * a previously uploaded set of spots. This file is then used for visualization of the extracted pattern
  * and visualizations of potentially matched spots.
  * @author jholmber
@@ -59,16 +63,19 @@ public class EncounterAddSpotFile extends HttpServlet {
 
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
-    
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("EncounterAddSpotFile.class");
+
     //setup data dir
     String rootWebappPath = getServletContext().getRealPath("/");
     File webappsDir = new File(rootWebappPath).getParentFile();
-    File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName());
-    //if(!shepherdDataDir.exists()){shepherdDataDir.mkdir();}
+    File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName(context));
+    if(!shepherdDataDir.exists()){shepherdDataDir.mkdirs();}
     File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
-    //if(!encountersDir.exists()){encountersDir.mkdir();}
-    
+    if(!encountersDir.exists()){encountersDir.mkdirs();}
+
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -77,7 +84,67 @@ public class EncounterAddSpotFile extends HttpServlet {
     String side = "left";
 
 
-    try {
+		String imageContents = request.getParameter("imageContents");
+
+
+		if (imageContents != null) {
+			encounterNumber = request.getParameter("number");
+			if ((request.getParameter("rightSide") != null) && request.getParameter("rightSide").equals("true")) side = "right";
+
+			byte[] imgBytes = new byte[100];
+			try {
+				imgBytes = DatatypeConverter.parseBase64Binary(imageContents);
+			} catch (IllegalArgumentException ex) {
+				System.out.println("could not parse imageContents base64: " + ex.toString());
+			}
+			if (imgBytes.length > 0) {
+				if (side.equals("right")) {
+					fileName = "extractRight" + encounterNumber + ".jpg";
+				} else {
+					fileName = "extract" + encounterNumber + ".jpg";
+				}
+				File spotFile = new File(Encounter.dir(shepherdDataDir, encounterNumber), fileName);
+//System.out.println("got imgBytes! -> " + spotFile.toString());
+				FileOutputStream stream = new FileOutputStream(spotFile);
+				try {
+					stream.write(imgBytes);
+				} finally {
+					stream.close();
+      		myShepherd.beginDBTransaction();
+        	Encounter add2shark = myShepherd.getEncounter(encounterNumber);
+        	try {
+          	if (side.equals("right")) {
+            	add2shark.setRightSpotImageFileName(fileName);
+            	//add2shark.hasRightSpotImage = true;
+          	} else {
+            	add2shark.setSpotImageFileName(fileName);
+            	//add2shark.hasSpotImage = true;
+          	}
+
+          	String user = "Unknown User";
+          	if (request.getRemoteUser() != null) {
+            	user = request.getRemoteUser();
+          	}
+          	add2shark.addComments("<p><em>" + user + " on " + (new java.util.Date()).toString() + "</em><br>" + "Submitted new " + side + "-side spot data graphic.</p>");
+
+        	} catch (Exception le) {
+          	locked = true;
+          	myShepherd.rollbackDBTransaction();
+          	le.printStackTrace();
+        	}
+
+        	if (!locked) {
+          	myShepherd.commitDBTransaction();
+          	myShepherd.closeDBTransaction();
+					}
+				}
+			}
+
+		}
+
+
+
+    if (imageContents == null) try {
 
       MultipartParser mp = new MultipartParser(request, 10 * 1024 * 1024); // 2MB
       Part part;
@@ -101,9 +168,11 @@ public class EncounterAddSpotFile extends HttpServlet {
             }
           }
 
+
         }
 
-        File thisEncounterDir = new File(encountersDir, encounterNumber);
+        //File thisEncounterDir = new File(encountersDir, Encounter.subdir(encounterNumber));
+				File thisEncounterDir = new File(Encounter.dir(shepherdDataDir, encounterNumber));
         if (part.isFile()) {
           FilePart filePart = (FilePart) part;
           fileName = ServletUtilities.cleanFileName(filePart.getFileName());
@@ -155,10 +224,10 @@ public class EncounterAddSpotFile extends HttpServlet {
         try {
           if (side.equals("right")) {
             add2shark.setRightSpotImageFileName(fileName);
-            add2shark.hasRightSpotImage = true;
+            //add2shark.hasRightSpotImage = true;
           } else {
             add2shark.setSpotImageFileName(fileName);
-            add2shark.hasSpotImage = true;
+            //add2shark.hasSpotImage = true;
           }
 
           String user = "Unknown User";
@@ -183,27 +252,27 @@ public class EncounterAddSpotFile extends HttpServlet {
           }
           out.println(ServletUtilities.getHeader(request));
           out.println("<strong>Step 2 Confirmed:</strong> I have successfully uploaded your " + side + "-side spot data image file.");
-          out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
-          out.println(ServletUtilities.getFooter());
+          out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "#spotpatternmatching\">Return to encounter " + encounterNumber + "</a></p>\n");
+          out.println(ServletUtilities.getFooter(context));
         } else {
           out.println(ServletUtilities.getHeader(request));
           out.println("<strong>Step 2 Failed:</strong> This encounter is currently locked and modified by another user. Please try to resubmit your spot data and add this image again in a few seconds.");
 
           out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
-          out.println(ServletUtilities.getFooter());
+          out.println(ServletUtilities.getFooter(context));
         }
       } else {
         myShepherd.rollbackDBTransaction();
         myShepherd.closeDBTransaction();
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Error:</strong> I was unable to upload your file. I cannot find the encounter that you intended it for in the database, or the file type uploaded is not supported.");
-        out.println(ServletUtilities.getFooter());
+        out.println(ServletUtilities.getFooter(context));
       }
     } catch (IOException lEx) {
       lEx.printStackTrace();
       out.println(ServletUtilities.getHeader(request));
       out.println("<strong>Error:</strong> I was unable to upload your file.");
-      out.println(ServletUtilities.getFooter());
+      out.println(ServletUtilities.getFooter(context));
       myShepherd.rollbackDBTransaction();
       myShepherd.closeDBTransaction();
     }
@@ -212,5 +281,5 @@ public class EncounterAddSpotFile extends HttpServlet {
 
 
 }
-	
-	
+
+

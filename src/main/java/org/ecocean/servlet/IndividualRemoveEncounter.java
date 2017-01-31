@@ -29,6 +29,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 
@@ -51,7 +52,11 @@ public class IndividualRemoveEncounter extends HttpServlet {
   }
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    request.setCharacterEncoding("UTF-8");
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("IndividualRemoveEncounter.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -86,28 +91,38 @@ public class IndividualRemoveEncounter extends HttpServlet {
     if ((request.getParameter("number") != null)) {
       myShepherd.beginDBTransaction();
       Encounter enc2remove = myShepherd.getEncounter(request.getParameter("number"));
+    
       setDateLastModified(enc2remove);
-      if (!enc2remove.isAssignedToMarkedIndividual().equals("Unassigned")) {
-        String old_name = enc2remove.isAssignedToMarkedIndividual();
+      myShepherd.commitDBTransaction();
+      myShepherd.beginDBTransaction();
+      if (enc2remove.getIndividualID()!=null) {
+        String old_name = enc2remove.getIndividualID();
         boolean wasRemoved = false;
         String name_s = "";
         try {
           MarkedIndividual removeFromMe = myShepherd.getMarkedIndividual(old_name);
-          name_s = removeFromMe.getName();
-          while (removeFromMe.getEncounters().contains(enc2remove)) {
-            removeFromMe.removeEncounter(enc2remove);
+          
+          if(removeFromMe!=null){
+            name_s = removeFromMe.getName();
+            while (removeFromMe.getEncounters().contains(enc2remove)) {
+              removeFromMe.removeEncounter(enc2remove, context);
+            }
+            removeFromMe.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>" + "Removed encounter#" + request.getParameter("number") + ".</p>");
+            if (removeFromMe.totalEncounters() == 0) {
+              myShepherd.throwAwayMarkedIndividual(removeFromMe);
+              wasRemoved = true;
+            }
           }
-          while (myShepherd.getUnidentifiableEncountersForMarkedIndividual(old_name).contains(enc2remove)) {
-            removeFromMe.removeEncounter(enc2remove);
-          }
-          enc2remove.assignToMarkedIndividual("Unassigned");
-          enc2remove.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>" + "Removed from " + old_name + ".</p>");
-          removeFromMe.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>" + "Removed encounter#" + request.getParameter("number") + ".</p>");
 
-          if ((removeFromMe.totalEncounters() + removeFromMe.totalLogEncounters()) == 0) {
-            myShepherd.throwAwayMarkedIndividual(removeFromMe);
-            wasRemoved = true;
-          }
+          //while (myShepherd.getUnidentifiableEncountersForMarkedIndividual(old_name).contains(enc2remove)) {
+          //  removeFromMe.removeEncounter(enc2remove, context);
+          //}
+          enc2remove.setIndividualID(null);
+          enc2remove.setOccurrenceID(null);
+
+          enc2remove.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>" + "Removed from " + old_name + ".</p>");
+          
+
 
         } catch (java.lang.NullPointerException npe) {
           npe.printStackTrace();
@@ -126,21 +141,21 @@ public class IndividualRemoveEncounter extends HttpServlet {
           myShepherd.commitDBTransaction();
           out.println(ServletUtilities.getHeader(request));
           out.println("<strong>Success:</strong> Encounter #" + request.getParameter("number") + " was successfully removed from " + old_name + ".");
-          out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+          out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
           if (wasRemoved) {
             out.println("Record <strong>" + name_s + "</strong> was also removed because it contained no encounters.");
           }
-          out.println(ServletUtilities.getFooter());
+          out.println(ServletUtilities.getFooter(context));
           String message = "Encounter #" + request.getParameter("number") + " was removed from " + old_name + ".";
-          ServletUtilities.informInterestedParties(request, request.getParameter("number"), message);
+          ServletUtilities.informInterestedParties(request, request.getParameter("number"), message,context);
           if (!wasRemoved) {
-            ServletUtilities.informInterestedIndividualParties(request, old_name, message);
+            ServletUtilities.informInterestedIndividualParties(request, old_name, message,context);
           }
         } else {
           out.println(ServletUtilities.getHeader(request));
           out.println("<strong>Failure:</strong> Encounter #" + request.getParameter("number") + " was NOT removed from " + old_name + ". Another user is currently modifying this record entry. Please try again in a few seconds.");
-          out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-          out.println(ServletUtilities.getFooter());
+          out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+          out.println(ServletUtilities.getFooter(context));
 
         }
 
@@ -148,7 +163,7 @@ public class IndividualRemoveEncounter extends HttpServlet {
         myShepherd.rollbackDBTransaction();
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Error:</strong> You can't remove this encounter from a marked individual because it is not assigned to one.");
-        out.println(ServletUtilities.getFooter());
+        out.println(ServletUtilities.getFooter(context));
       }
 
 

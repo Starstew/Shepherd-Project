@@ -1,32 +1,13 @@
-<%--
-  ~ The Shepherd Project - A Mark-Recapture Framework
-  ~ Copyright (C) 2011 Jason Holmberg
-  ~
-  ~ This program is free software; you can redistribute it and/or
-  ~ modify it under the terms of the GNU General Public License
-  ~ as published by the Free Software Foundation; either version 2
-  ~ of the License, or (at your option) any later version.
-  ~
-  ~ This program is distributed in the hope that it will be useful,
-  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  ~ GNU General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU General Public License
-  ~ along with this program; if not, write to the Free Software
-  ~ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-  --%>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@ page contentType="text/html; charset=iso-8859-1" language="java"
-         import="org.ecocean.CommonConfiguration" %>
-<%@ page import="org.ecocean.Shepherd" %>
+         import="org.ecocean.servlet.ServletUtilities,org.ecocean.*" %>
+
 
 
 <%
 
-  Shepherd myShepherd = new Shepherd();
+String context="context0";
+context=ServletUtilities.getContext(request);
+
 
 //handle some cache-related security
   response.setHeader("Cache-Control", "no-cache"); //Forces caches to obtain a new copy of the page from the origin server
@@ -35,43 +16,14 @@
   response.setHeader("Pragma", "no-cache"); //HTTP 1.0 backward compatibility
 %>
 
-<html>
-<head>
-  <title><%=CommonConfiguration.getHTMLTitle() %>
-  </title>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <meta name="Description"
-        content="<%=CommonConfiguration.getHTMLDescription() %>"/>
-  <meta name="Keywords"
-        content="<%=CommonConfiguration.getHTMLKeywords() %>"/>
-  <meta name="Author" content="<%=CommonConfiguration.getHTMLAuthor() %>"/>
-  <link href="<%=CommonConfiguration.getCSSURLLocation(request) %>"
-        rel="stylesheet" type="text/css"/>
-  <link rel="shortcut icon"
-        href="<%=CommonConfiguration.getHTMLShortcutIcon() %>"/>
+    <jsp:include page="../header.jsp" flush="true" />
 
-  <style type="text/css">
-    <!--
-    .style1 {
-      color: #FF0000
-    }
+  
+<div class="container maincontent">
+     
 
-    -->
-  </style>
-</head>
-
-<body>
-<div id="wrapper">
-  <div id="page">
-    <jsp:include page="../header.jsp" flush="true">
-
-      <jsp:param name="isAdmin" value="<%=request.isUserInRole(\"admin\")%>" />
-    </jsp:include>
-    <div id="main">
-      <p>
-
-      <h1 class="intro">Library Administration</h1>
-      </p>
+      <h1>Library Administration</h1>
+     
       <table width="600" border="1">
         <tr>
           <td>
@@ -120,10 +72,10 @@
 
             <form name="massSwapLocCode" method="post" action="../MassSwapLocationCode">
               <p>Old location code: <input name="oldLocCode" type="text"
-                                           id="oldLocCode" size="10" maxlength="10">
+                                           id="oldLocCode" size="10" >
 
               <p>New location code: <input name="newLocCode" type="text"
-                                           id="newLocCode" size="10" maxlength="10"> <br/>
+                                           id="newLocCode" size="10" > <br/>
                 <br> <input name="Update" type="submit" id="Update"
                             value="Update"></p>
             </form>
@@ -191,20 +143,34 @@
               <p>Inform others email addresses to assign: <input
                 name="informEmail" type="text" id="informEmail" size="50"
                 maxlength="999"> <br/>
-                <br> <input name="Update" type="submit" id="Update"
+                <br /> <input name="Update" type="submit" id="Update"
                             value="Update"></p>
             </form>
           </td>
         </tr>
       </table>
 
+      <p>&nbsp;</p>
+      <table width="600" border="1">
+        <tr>
+          <td>
+            <p><img src="../images/Warning_icon.png" width="25px" height="*" align="absmiddle" />  <font size="+1">Delete All Data PERMANENTLY</font>
+            <br /><br /><em>Warning! This will delete ALL of your data. Your user account must have the 'destroyer' user role for this function to work, and this option is not available for any account by default. This option is only meant for
+            Shepherd Project instances that have transient data (i.e., the Shepherd Project is not the primary data store).</em>
+            </p>
+
+            <form onsubmit="return confirm('Are you sure you want to delete all encounters? WARNING! This will cause complete data loss!');" name="deleteAll" method="post" action="../DeleteAllDataPermanently">
+
+              <input name="deleteAllData" type="submit" id="deleteAllData" value="Delete All Data PERMANENTLY">
+              </p></form>
+          </td>
+        </tr>
+      </table>
+      
+</div>
+
 
       <jsp:include page="../footer.jsp" flush="true"/>
-    </div>
-  </div>
-  <!-- end page --></div>
-<!--end wrapper -->
-</body>
-</html>
+
 
 

@@ -22,7 +22,6 @@ package org.ecocean.grid;
 //unenhanced comment
 
 //import java.io.Serializable;
-//import java.util.Properties;
 
 /**
  * An <code>encounter</code> object stores the complete data for a single sighting.
@@ -53,7 +52,7 @@ public class ScanWorkItemResult implements java.io.Serializable {
     this.uniqueNumWI = uniqueNumberOfWorkItem;
     this.uniqueNumTask = uniqueNumberOfTask;
     this.workItemResultUniqueID = uniqueNumberOfWorkItem + "_result";
-    this.i3sResult = i3sResult;
+    //this.i3sResult = i3sResult;
   }
 
   public MatchObject getResult() {

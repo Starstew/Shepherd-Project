@@ -28,6 +28,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 
@@ -53,14 +54,17 @@ public class EncounterSetSubmitterID extends HttpServlet {
   }
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("EncounterSetSubmitterID.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
     boolean locked = false;
 
     String encounterNumber = "None", submitter = "N/A";
-    String prevSubmitter = "N/A";
+    String prevSubmitter = "null";
     myShepherd.beginDBTransaction();
 
 
@@ -76,7 +80,10 @@ public class EncounterSetSubmitterID extends HttpServlet {
           prevSubmitter = sharky.getSubmitterID();
         }
 
-        sharky.setSubmitterID(submitter);
+        if(submitter.trim().equals("")){sharky.setSubmitterID(null);}
+        else{
+          sharky.setSubmitterID(submitter);
+        }
         sharky.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>" + "Changed Library submitter ID from " + prevSubmitter + " to " + submitter + ".</p>");
 
       } catch (Exception le) {
@@ -90,25 +97,28 @@ public class EncounterSetSubmitterID extends HttpServlet {
         myShepherd.closeDBTransaction();
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Success!</strong> I have successfully changed the Library submitter ID for encounter " + encounterNumber + " from " + prevSubmitter + " to " + submitter + ".</p>");
-
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        response.setStatus(HttpServletResponse.SC_OK);
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
+        out.println(ServletUtilities.getFooter(context));
         String message = "The submitter ID for encounter " + encounterNumber + " was changed from " + prevSubmitter + " to " + submitter + ".";
-        ServletUtilities.informInterestedParties(request, encounterNumber, message);
-      } else {
+        ServletUtilities.informInterestedParties(request, encounterNumber, message,context);
+      } 
+      else {
 
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Failure!</strong> This encounter is currently being modified by another user. Please wait a few seconds before trying to remove this data file again.");
-
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
+        out.println(ServletUtilities.getFooter(context));
 
       }
-    } else {
+    } 
+    else {
 
       out.println(ServletUtilities.getHeader(request));
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       out.println("<strong>Error:</strong> I was unable to set the submitter ID. I cannot find the encounter that you intended it for in the database, or I wasn't sure what file you wanted to remove.");
-      out.println(ServletUtilities.getFooter());
+      out.println(ServletUtilities.getFooter(context));
 
     }
     out.close();

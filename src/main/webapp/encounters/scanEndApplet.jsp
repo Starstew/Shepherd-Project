@@ -20,25 +20,30 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@ page contentType="text/html; charset=iso-8859-1" language="java"
-         import="org.dom4j.Document, org.dom4j.Element,org.dom4j.io.SAXReader, org.ecocean.CommonConfiguration, org.ecocean.Shepherd, org.ecocean.grid.MatchComparator, org.ecocean.grid.MatchObject, java.io.File, java.util.Arrays, java.util.Iterator, java.util.List, java.util.Vector" %>
-<html>
+         import="org.ecocean.servlet.ServletUtilities,org.dom4j.Document, org.dom4j.Element,org.dom4j.io.SAXReader, org.ecocean.*, org.ecocean.grid.MatchComparator, org.ecocean.grid.MatchObject, java.io.File, java.util.Arrays, java.util.Iterator, java.util.List, java.util.Vector" %>
+
 <%
+
+String context="context0";
+context=ServletUtilities.getContext(request);
 
 //let's set up references to our file system components
 String rootWebappPath = getServletContext().getRealPath("/");
 File webappsDir = new File(rootWebappPath).getParentFile();
-File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName());
+File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName(context));
 File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
 
 
 
   session.setMaxInactiveInterval(6000);
   String num = request.getParameter("number");
-  Shepherd myShepherd = new Shepherd();
+	String encSubdir = Encounter.subdir(num);
+  Shepherd myShepherd = new Shepherd(context);
+  myShepherd.setAction("scanEndApplet.jsp");
   if (request.getParameter("writeThis") == null) {
     myShepherd = (Shepherd) session.getAttribute(request.getParameter("number"));
   }
-  Shepherd altShepherd = new Shepherd();
+  //Shepherd altShepherd = new Shepherd(context);
   String sessionId = session.getId();
   boolean xmlOK = false;
   SAXReader xmlReader = new SAXReader();
@@ -51,26 +56,13 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
   String maxTriangleRotation = "";
   String side2 = "";
 %>
-
-<head>
-  <title><%=CommonConfiguration.getHTMLTitle() %>
-  </title>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <meta name="Description"
-        content="<%=CommonConfiguration.getHTMLDescription() %>"/>
-  <meta name="Keywords"
-        content="<%=CommonConfiguration.getHTMLKeywords() %>"/>
-  <meta name="Author" content="<%=CommonConfiguration.getHTMLAuthor() %>"/>
-  <link href="<%=CommonConfiguration.getCSSURLLocation(request) %>"
-        rel="stylesheet" type="text/css"/>
-  <link rel="shortcut icon"
-        href="<%=CommonConfiguration.getHTMLShortcutIcon() %>"/>
-</head>
+<jsp:include page="../header.jsp" flush="true"/>
 
 <style type="text/css">
+ 
   #tabmenu {
     color: #000;
-    border-bottom: 2px solid black;
+    border-bottom: 1px solid #CDCDCD;
     margin: 12px 0px 0px 0px;
     padding: 0px;
     z-index: 1;
@@ -84,10 +76,10 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
   }
 
   #tabmenu a, a.active {
-    color: #DEDECF;
-    background: #000;
-    font: bold 1em "Trebuchet MS", Arial, sans-serif;
-    border: 2px solid black;
+    color: #000;
+    background: #E6EEEE;
+
+    border: 1px solid #CDCDCD;
     padding: 2px 5px 0px 5px;
     margin: 0;
     text-decoration: none;
@@ -95,37 +87,34 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
   }
 
   #tabmenu a.active {
-    background: #FFFFFF;
+    background: #8DBDD8;
     color: #000000;
-    border-bottom: 2px solid #FFFFFF;
+    border-bottom: 1px solid #8DBDD8;
   }
 
   #tabmenu a:hover {
-    color: #ffffff;
-    background: #7484ad;
+    color: #000;
+    background: #8DBDD8;
   }
 
   #tabmenu a:visited {
-    color: #E8E9BE;
+    
   }
 
   #tabmenu a.active:hover {
-    background: #7484ad;
-    color: #DEDECF;
-    border-bottom: 2px solid #000000;
+    color: #000;
+    border-bottom: 1px solid #8DBDD8;
   }
+  
+  td, th {
+    border: 1px solid black;
+    padding: 5px;
+}
+  
 </style>
 
-<body>
-<div id="wrapper">
-<div id="page">
-<jsp:include page="../header.jsp" flush="true">
-  <jsp:param name="isAdmin" value="<%=request.isUserInRole(\"admin\")%>" />
-</jsp:include>
-<div id="page">
 
-
-<div id="main">
+<div class="container maincontent">
 
 <ul id="tabmenu">
   <li><a
@@ -139,14 +128,14 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
     File finalXMLFile;
     if ((request.getParameter("rightSide") != null) && (request.getParameter("rightSide").equals("true"))) {
       //finalXMLFile=new File((new File(".")).getCanonicalPath()+File.separator+"webapps"+File.separator+"ROOT"+File.separator+"encounters"+File.separator+num+File.separator+"lastFullRightI3SScan.xml");
-      finalXMLFile = new File(encountersDir.getAbsolutePath()+"/"+ num + "/lastFullRightI3SScan.xml");
+      finalXMLFile = new File(encountersDir.getAbsolutePath()+"/"+ encSubdir + "/lastFullRightI3SScan.xml");
 
 
       side2 = "right";
       fileSider = "&rightSide=true";
     } else {
       //finalXMLFile=new File((new File(".")).getCanonicalPath()+File.separator+"webapps"+File.separator+"ROOT"+File.separator+"encounters"+File.separator+num+File.separator+"lastFullI3SScan.xml");
-      finalXMLFile = new File(encountersDir.getAbsolutePath()+"/" + num + "/lastFullI3SScan.xml");
+      finalXMLFile = new File(encountersDir.getAbsolutePath()+"/" + encSubdir + "/lastFullI3SScan.xml");
     }
     if (finalXMLFile.exists()) {
   %>
@@ -179,13 +168,13 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
     try {
       if ((request.getParameter("rightSide") != null) && (request.getParameter("rightSide").equals("true"))) {
         //file=new File((new File(".")).getCanonicalPath()+File.separator+"webapps"+File.separator+"ROOT"+File.separator+"encounters"+File.separator+num+File.separator+"lastFullRightScan.xml");
-        file = new File(encountersDir.getAbsolutePath()+"/" + num + "/lastFullRightScan.xml");
+        file = new File(encountersDir.getAbsolutePath()+"/" + encSubdir + "/lastFullRightScan.xml");
 
 
         side = "right";
       } else {
         //file=new File((new File(".")).getCanonicalPath()+File.separator+"webapps"+File.separator+"ROOT"+File.separator+"encounters"+File.separator+num+File.separator+"lastFullScan.xml");
-        file = new File(encountersDir.getAbsolutePath()+"/" + num + "/lastFullScan.xml");
+        file = new File(encountersDir.getAbsolutePath()+"/" + encSubdir + "/lastFullScan.xml");
 
       }
       doc = xmlReader.read(file);
@@ -224,14 +213,13 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
 <p>
 
 <h2>Modified Groth Scan Results <a
-  href="<%=CommonConfiguration.getWikiLocation()%>scan_results"
+  href="<%=CommonConfiguration.getWikiLocation(context)%>scan_results"
   target="_blank"><img src="../images/information_icon_svg.gif"
                        alt="Help" border="0" align="absmiddle"></a></h2>
 </p>
-<p><strong>The following encounter(s) received the highest
-  match values against a <%=side%>-side scan of encounter# <a
-    href="http://<%=CommonConfiguration.getURLLocation(request)%>/encounters/encounter.jsp?number=<%=num%>"><%=num%>
-  </a>.</strong></p>
+<p>The following encounter(s) received the highest
+  match values against a <%=side%>-side scan of encounter <a
+    href="//<%=CommonConfiguration.getURLLocation(request)%>/encounters/encounter.jsp?number=<%=num%>"><%=num%></a>.</p>
 
 
 <%
@@ -243,39 +231,64 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
 <p><em>Date of scan: <%=scanDate%>
 </em></p>
 <%}%>
-<table width="524" border="1" cellspacing="0" cellpadding="5">
-  <tr>
-    <td width="143" align="left" valign="top">
-      <%if ((request.getParameter("epsilon") != null) && (request.getParameter("R") != null)) {%>
-      <p><font size="+1">Custom Scan</font></p>
-      <%} else {%>
-      <p><font size="+1">Standard Scan</font></p>
-      <%}%>
-      <p>For this scan, the following variables were used:</p>
-      <ul>
+
+<p><a href="#resultstable">See the table below for score breakdowns.</a></p>
 
 
-        <li>epsilon (<%=epsilon%>)</li>
-        <li>R (<%=R%>)</li>
-        <li>Sizelim (<%=Sizelim%>)</li>
-        <li>C (<%=C%>)</li>
-        <li>Max. Triangle Rotation (<%=maxTriangleRotation%>)</li>
 
-      </ul>
-    </td>
-    <td width="355" align="left" valign="top">
-      <table width="100%" border="1" align="left" cellpadding="3">
+
+<%
+    String feedURL = "//" + CommonConfiguration.getURLLocation(request) + "/TrackerFeed?number=" + num;
+    String baseURL = "/"+CommonConfiguration.getDataDirectoryName(context)+"/encounters/";
+
+    //System.out.println("Base URL is: " + baseURL);
+    if (xmlOK) {
+      if ((request.getParameter("rightSide") != null) && (request.getParameter("rightSide").equals("true"))) {
+        feedURL = baseURL + encSubdir + "/lastFullRightScan.xml?";
+      } else {
+        feedURL = baseURL + encSubdir + "/lastFullScan.xml?";
+      }
+    }
+    String rightSA = "";
+    if ((request.getParameter("rightSide") != null) && (request.getParameter("rightSide").equals("true"))) {
+      rightSA = "&filePrefix=extractRight";
+    }
+    //System.out.println("I made it to the Flash without exception.");
+  %>
+  <OBJECT id=sharkflash
+          codeBase=http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,0,0
+          height=450 width=800 classid=clsid:D27CDB6E-AE6D-11cf-96B8-444553540000>
+    <PARAM NAME="movie"
+           VALUE="tracker.swf?sessionId=<%=sessionId%>&rootURL=<%=CommonConfiguration.getURLLocation(request)%>&baseURL=<%=baseURL%>&feedurl=<%=feedURL%><%=rightSA%>">
+    <PARAM NAME="qualidty" VALUE="high">
+    <PARAM NAME="scale" VALUE="exactfit">
+    <PARAM NAME="bgcolor" VALUE="#ddddff">
+    <EMBED
+      src="tracker.swf?sessionId=<%=sessionId%>&rootURL=<%=CommonConfiguration.getURLLocation(request)%>&baseURL=<%=baseURL%>&feedurl=<%=feedURL%>&time=<%=System.currentTimeMillis()%><%=rightSA%>"
+      quality=high scale=exactfit bgcolor=#ddddff swLiveConnect=TRUE
+      WIDTH="800" HEIGHT="450" NAME="sharkflash" ALIGN=""
+      TYPE="application/x-shockwave-flash"
+      PLUGINSPAGE="http://www.macromedia.com/go/getflashplayer"></EMBED>
+  </OBJECT>
+</p>
+  
+      <a name="resultstable"/>
+      
+      <table class="tablesorter" width="800px">
+      <thead>
         <tr align="left" valign="top">
-          <td><strong>Individual ID</strong></td>
-          <td><strong> Encounter</strong></td>
-          <td><strong>Fraction Matched Triangles </strong></td>
-          <td><strong>Match Score </strong></td>
-          <%//  <td><strong>Triangle logM Breakdown</strong></td> %>
-          <td><strong>logM std. dev.</strong></td>
-          <td><strong>Confidence</strong></td>
-          <td><strong>Matched Keywords</strong></td>
+          <th><strong>Individual ID</strong></th>
+          <th><strong> Encounter</strong></th>
+          <th><strong>Fraction Matched Triangles </strong></th>
+          <th><strong>Match Score </strong></th>
+    
+          <th><strong>logM std. dev.</strong></th>
+          <th><strong>Confidence</strong></th>
+          <th><strong>Matched Keywords</strong></th>
 
         </tr>
+        </thead>
+        <tbody>
         <%
           if (!xmlOK) {
 
@@ -284,22 +297,17 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
             Arrays.sort(results, new MatchComparator());
             for (int p = 0; p < results.length; p++) {
               if ((results[p].matchValue != 0) || (request.getAttribute("singleComparison") != null)) {%>
-        <tr align="left" valign="top">
+        <tr>
           <td>
-            <table width="62">
-
-              <tr>
-                <td width="60" align="left"><a
-                  href="http://<%=CommonConfiguration.getURLLocation(request)%>/individuals.jsp?number=<%=results[p].getIndividualName()%>"><%=results[p].getIndividualName()%>
-                </a></td>
-              </tr>
-            </table>
+            <a
+                  href="//<%=CommonConfiguration.getURLLocation(request)%>/individuals.jsp?number=<%=results[p].getIndividualName()%>"><%=results[p].getIndividualName()%>
+                </a>
           </td>
           <%if (results[p].encounterNumber.equals("N/A")) {%>
           <td>N/A</td>
           <%} else {%>
           <td><a
-            href="http://<%=CommonConfiguration.getURLLocation(request)%>/encounters/encounter.jsp?number=<%=results[p].encounterNumber%>"><%=results[p].encounterNumber%>
+            href="//<%=CommonConfiguration.getURLLocation(request)%>/encounters/encounter.jsp?number=<%=results[p].encounterNumber%>"><%=results[p].encounterNumber%>
           </a></td>
           <%
             }
@@ -346,22 +354,18 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
             Element enc1 = (Element) encounters.get(0);
             Element enc2 = (Element) encounters.get(1);
         %>
+        
         <tr align="left" valign="top">
           <td>
-            <table width="62">
-
-              <tr>
-                <td width="60" align="left"><a
-                  href="http://<%=CommonConfiguration.getURLLocation(request)%>/individuals.jsp?number=<%=enc1.attributeValue("assignedToShark")%>"><%=enc1.attributeValue("assignedToShark")%>
-                </a></td>
-              </tr>
-            </table>
+            <a href="//<%=CommonConfiguration.getURLLocation(request)%>/individuals.jsp?number=<%=enc1.attributeValue("assignedToShark")%>">
+            	<%=enc1.attributeValue("assignedToShark")%>
+            </a>
           </td>
           <%if (enc1.attributeValue("number").equals("N/A")) {%>
           <td>N/A</td>
           <%} else {%>
           <td><a
-            href="http://<%=CommonConfiguration.getURLLocation(request)%>/encounters/encounter.jsp?number=<%=enc1.attributeValue("number")%>"><%=enc1.attributeValue("number")%>
+            href="//<%=CommonConfiguration.getURLLocation(request)%>/encounters/encounter.jsp?number=<%=enc1.attributeValue("number")%>">Link
           </a></td>
           <%
             }
@@ -436,67 +440,40 @@ File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
           }
 
         %>
-
+</tbody>
       </table>
-    </td>
-  </tr>
-</table>
-</tr>
-</table>
 
-<p><font size="+1">Visualizations for Potential Matches (as
-  scored above)</font></p>
 
-<p>
 
-<p>
   <%
-    String feedURL = "http://" + CommonConfiguration.getURLLocation(request) + "/TrackerFeed?number=" + num;
-    String baseURL = "/"+CommonConfiguration.getDataDirectoryName()+"/encounters/";
 
 
-//myShepherd.rollbackDBTransaction();
+
+myShepherd.closeDBTransaction();
     myShepherd = null;
     doc = null;
     root = null;
     initresults = null;
     file = null;
     xmlReader = null;
+    
+if ((request.getParameter("epsilon") != null) && (request.getParameter("R") != null)) {%>
+      <p><font size="+1">Custom Scan</font></p>
+      <%} else {%>
+      <p><font size="+1">Standard Scan</font></p>
+      <%}%>
+      <p>For this scan, the following variables were used:</p>
+      <ul>
 
-    System.out.println("Base URL is: " + baseURL);
-    if (xmlOK) {
-      if ((request.getParameter("rightSide") != null) && (request.getParameter("rightSide").equals("true"))) {
-        feedURL = baseURL + num + "/lastFullRightScan.xml?";
-      } else {
-        feedURL = baseURL + num + "/lastFullScan.xml?";
-      }
-    }
-    String rightSA = "";
-    if ((request.getParameter("rightSide") != null) && (request.getParameter("rightSide").equals("true"))) {
-      rightSA = "&filePrefix=extractRight";
-    }
-    System.out.println("I made it to the Flash without exception.");
-  %>
-  <OBJECT id=sharkflash
-          codeBase=http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,0,0
-          height=450 width=800 classid=clsid:D27CDB6E-AE6D-11cf-96B8-444553540000>
-    <PARAM NAME="movie"
-           VALUE="tracker.swf?sessionId=<%=sessionId%>&rootURL=<%=CommonConfiguration.getURLLocation(request)%>&baseURL=<%=baseURL%>&feedurl=<%=feedURL%><%=rightSA%>">
-    <PARAM NAME="qualidty" VALUE="high">
-    <PARAM NAME="scale" VALUE="exactfit">
-    <PARAM NAME="bgcolor" VALUE="#ddddff">
-    <EMBED
-      src="tracker.swf?sessionId=<%=sessionId%>&rootURL=<%=CommonConfiguration.getURLLocation(request)%>&baseURL=<%=baseURL%>&feedurl=<%=feedURL%>&time=<%=System.currentTimeMillis()%><%=rightSA%>"
-      quality=high scale=exactfit bgcolor=#ddddff swLiveConnect=TRUE
-      WIDTH="800" HEIGHT="450" NAME="sharkflash" ALIGN=""
-      TYPE="application/x-shockwave-flash"
-      PLUGINSPAGE="http://www.macromedia.com/go/getflashplayer"></EMBED>
-  </OBJECT>
-</p>
+
+        <li>epsilon (<%=epsilon%>)</li>
+        <li>R (<%=R%>)</li>
+        <li>Sizelim (<%=Sizelim%>)</li>
+        <li>C (<%=C%>)</li>
+        <li>Max. Triangle Rotation (<%=maxTriangleRotation%>)</li>
+
+      </ul>
+<br />
+</div>
 <jsp:include page="../footer.jsp" flush="true"/>
-</div>
-</div>
-<!-- end page --></div>
-<!--end wrapper -->
-</body>
-</html>
+

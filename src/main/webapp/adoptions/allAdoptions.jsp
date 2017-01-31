@@ -1,40 +1,23 @@
-<%--
-  ~ The Shepherd Project - A Mark-Recapture Framework
-  ~ Copyright (C) 2011 Jason Holmberg
-  ~
-  ~ This program is free software; you can redistribute it and/or
-  ~ modify it under the terms of the GNU General Public License
-  ~ as published by the Free Software Foundation; either version 2
-  ~ of the License, or (at your option) any later version.
-  ~
-  ~ This program is distributed in the hope that it will be useful,
-  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  ~ GNU General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU General Public License
-  ~ along with this program; if not, write to the Free Software
-  ~ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-  --%>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@ page contentType="text/html; charset=utf-8" language="java"
-         import="org.ecocean.Adoption,org.ecocean.CommonConfiguration,org.ecocean.Shepherd,org.ecocean.servlet.ServletUtilities, org.joda.time.DateTime, org.joda.time.format.DateTimeFormatter, org.joda.time.format.ISODateTimeFormat, javax.jdo.Extent,javax.jdo.Query,java.util.Iterator, java.util.Properties" %>
+         import="org.ecocean.servlet.ServletUtilities,org.ecocean.Adoption,org.ecocean.CommonConfiguration,org.ecocean.Shepherd,org.ecocean.servlet.ServletUtilities, org.joda.time.DateTime, org.joda.time.format.DateTimeFormatter, org.joda.time.format.ISODateTimeFormat, javax.jdo.Extent,javax.jdo.Query,java.util.Iterator, java.util.Properties" %>
 
 
 <%
-
+String context="context0";
+context=ServletUtilities.getContext(request);
   //set up dateTime
   DateTime dt = new DateTime();
   DateTimeFormatter fmt = ISODateTimeFormat.date();
   String strOutputDateTime = fmt.print(dt);
 
 //setup our Properties object to hold all properties
-  Properties props = new Properties();
-  String langCode = "en";
+ // Properties props = new Properties();
+  //String langCode = "en";
+  String langCode=ServletUtilities.getLanguageCode(request);
+  
 
-  Shepherd myShepherd = new Shepherd();
+  Shepherd myShepherd = new Shepherd(context);
+  myShepherd.setAction("allAdoptions.jsp");
   String currentSort = "nosort";
   String displaySort = "";
   if (request.getParameter("sort") != null) {
@@ -56,35 +39,10 @@
 
 %>
 
-<html>
-<head>
-  <title><%=CommonConfiguration.getHTMLTitle() %>
-  </title>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <meta name="Description"
-        content="<%=CommonConfiguration.getHTMLDescription() %>"/>
-  <meta name="Keywords"
-        content="<%=CommonConfiguration.getHTMLKeywords() %>"/>
-  <meta name="Author" content="<%=CommonConfiguration.getHTMLAuthor() %>"/>
-  <link href="<%=CommonConfiguration.getCSSURLLocation(request) %>"
-        rel="stylesheet" type="text/css"/>
-  <link rel="shortcut icon"
-        href="<%=CommonConfiguration.getHTMLShortcutIcon() %>"/>
+    <jsp:include page="../header.jsp" flush="true" />
 
-</head>
-
-
-<body>
-<div id="wrapper">
-  <div id="page">
-    <jsp:include page="../header.jsp" flush="true">
-      <jsp:param name="isAdmin" value="<%=request.isUserInRole(\"admin\")%>" />
-    </jsp:include>
-
-    <div id="main">
-
-      <div id="maincol-wide" style="width: 810px;">
-        <div id="maintext">
+        <div class="container maincontent">
+        
           <%
 
             myShepherd.beginDBTransaction();
@@ -126,12 +84,12 @@
                   String userLink = "";
 
                   if (highCount < totalCount) {%> <a
-                href="http://<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount+10)%>&amp;end=<%=(highCount+10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Next</a>
+                href="//<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount+10)%>&amp;end=<%=(highCount+10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Next</a>
                 <%
                   }
                   if ((lowCount - 10) >= 1) {
                 %> | <a
-                href="http://<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount-10)%>&amp;end=<%=(highCount-10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Previous</a>
+                href="//<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount-10)%>&amp;end=<%=(highCount-10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Previous</a>
                 <%}%>
               </td>
               <td colspan="6" align="right">
@@ -177,7 +135,7 @@
             </tr>
             <%
 
-              Iterator allAdoptions;
+              Iterator<Adoption> allAdoptions;
 
               int total = totalCount;
               int iterTotal = totalCount;
@@ -188,18 +146,18 @@
               int countMe = 0;
               while (allAdoptions.hasNext()) {
                 countMe++;
-                Adoption enc = (Adoption) allAdoptions.next();
+                Adoption enc = allAdoptions.next();
 
 
             %>
             <tr class="lineitems">
               <td width="102" height="60" class="lineitems"><a
-                href="http://<%=CommonConfiguration.getURLLocation(request) %>/adoptions/adoption.jsp?individual=<%=enc.getID()%>"><img
-                src="/<%=CommonConfiguration.getDataDirectoryName() %>/adoptions/<%=(enc.getID()+"/thumb.jpg")%>"
+                href="//<%=CommonConfiguration.getURLLocation(request) %>/adoptions/adoption.jsp?individual=<%=enc.getID()%>"><img
+                src="/<%=CommonConfiguration.getDataDirectoryName(context) %>/adoptions/<%=(enc.getID()+"/thumb.jpg")%>"
                 width="100" height="75" alt="adopter photo" border="0"/></a></td>
 
               <td class="lineitems"><a
-                href="http://<%=CommonConfiguration.getURLLocation(request) %>/adoptions/adoption.jsp?number=<%=enc.getID()%>"><%=enc.getID()%>
+                href="//<%=CommonConfiguration.getURLLocation(request) %>/adoptions/adoption.jsp?number=<%=enc.getID()%>"><%=enc.getID()%>
               </a></td>
               <td class="lineitems"><%=enc.getAdopterName()%>
               </td>
@@ -223,12 +181,12 @@
               <td align="left">
                 <%
                   if (highCount < totalCount) {%> <a
-                href="http://<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount+10)%>&amp;end=<%=(highCount+10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Next</a>
+                href="//<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount+10)%>&amp;end=<%=(highCount+10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Next</a>
                 <%
                   }
                   if ((lowCount - 10) >= 0) {
                 %> | <a
-                href="http://<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount-10)%>&amp;end=<%=(highCount-10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Previous</a>
+                href="//<%=CommonConfiguration.getURLLocation(request)%>/adoptions/allAdoptions.jsp?langCode=<%=langCode%>&amp;start=<%=(lowCount-10)%>&amp;end=<%=(highCount-10)%><%=rejectsLink%><%=unapprovedLink%><%=userLink%><%=currentSort%>">Previous</a>
                 <%}%>
               </td>
               <td colspan="6" align="right">Viewing: <%=lowCount%> - <%=highCount%><%=displaySort%>
@@ -246,16 +204,8 @@
             query = null;
             myShepherd = null;
           %>
-          <p></p>
-
+        
 
         </div>
-        <!-- end maintext --></div>
-      <!-- end main-wide --></div>
-    <!-- end main -->
+
     <jsp:include page="../footer.jsp" flush="true"/>
-  </div>
-  <!-- end page --></div>
-<!--end wrapper -->
-</body>
-</html>

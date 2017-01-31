@@ -22,7 +22,10 @@ package org.ecocean.servlet;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
+
 import java.io.*;
+import java.util.List;
+
 import org.ecocean.*;
 
 
@@ -46,35 +49,16 @@ public class EncounterSetGPS extends HttpServlet {
     
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
-    Shepherd myShepherd=new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd=new Shepherd(context);
+    myShepherd.setAction("EncounterSetGPS.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
     boolean locked=false;
     boolean isOwner=true;
-    
-    /**
-    if(request.getParameter("number")!=null){
-      myShepherd.beginDBTransaction();
-      if(myShepherd.isEncounter(request.getParameter("number"))) {
-        Encounter verifyMyOwner=myShepherd.getEncounter(request.getParameter("number"));
-        String locCode=verifyMyOwner.getLocationCode();
-        
-        //check if the encounter is assigned
-        if((verifyMyOwner.getSubmitterID()!=null)&&(request.getRemoteUser()!=null)&&(verifyMyOwner.getSubmitterID().equals(request.getRemoteUser()))){
-          isOwner=true;
-        }
-        
-        //if the encounter is assigned to this user, they have permissions for it...or if they're a manager
-        else if((request.isUserInRole("admin"))){
-          isOwner=true;
-        }
-        //if they have general location code permissions for the encounter's location code
-        else if(request.isUserInRole(locCode)){isOwner=true;}
-      }
-      myShepherd.rollbackDBTransaction(); 
-    }
-    */
+   
 
 
     //reset GPS coordinates
@@ -100,7 +84,7 @@ public class EncounterSetGPS extends HttpServlet {
           
           try{
           
-            if (!(lat.equals(""))) {
+            if (!lat.equals("") && !longitude.equals("")) {
               //changeMe.setGPSLatitude(lat+"&deg; "+gpsLatitudeMinutes+"\' "+gpsLatitudeSeconds+"\" "+latDirection);
             
               
@@ -108,7 +92,9 @@ public class EncounterSetGPS extends HttpServlet {
                   double degrees=(new Double(lat)).doubleValue();
                   
                     changeMe.setDWCDecimalLatitude(degrees);
-
+                    double degrees2=(new Double(longitude)).doubleValue();
+                    
+                    changeMe.setDWCDecimalLongitude(degrees2);
                   
                 }
                 catch(Exception e) {
@@ -118,24 +104,10 @@ public class EncounterSetGPS extends HttpServlet {
               
               
             }
-            if (!(longitude.equals(""))) {
-              //changeMe.setGPSLongitude(longitude+"&deg; "+gpsLongitudeMinutes+"\' "+gpsLongitudeSeconds+"\" "+longDirection);
-            
-              try {
-                double degrees=(new Double(longitude)).doubleValue();
-                  
-                  changeMe.setDWCDecimalLongitude(degrees);
 
-                
-              }
-              catch(Exception e) {
-                System.out.println("EncounterSetGPS: problem setting decimal longitude!");
-                e.printStackTrace();
-              }
-            }
             
             //if one is not set, set all to null
-            if((longitude.equals(""))||(lat.equals(""))){
+            else {
 
               changeMe.setDecimalLatitude(null);
               changeMe.setDecimalLongitude(null);
@@ -158,35 +130,34 @@ public class EncounterSetGPS extends HttpServlet {
           if(!locked){
           
             myShepherd.commitDBTransaction();
-            out.println(ServletUtilities.getHeader(request));
+            //out.println(ServletUtilities.getHeader(request));
             out.println("<strong>Success:</strong> The encounter's recorded GPS location has been updated from "+oldGPS+" to "+newGPS+".");
-            out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter <strong>"+request.getParameter("number")+"</strong></a></p>\n");
-            out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-                out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-                out.println(ServletUtilities.getFooter());
+            //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter <strong>"+request.getParameter("number")+"</strong></a></p>\n");
+            response.setStatus(HttpServletResponse.SC_OK);
+            
+            out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+              //  out.println(ServletUtilities.getFooter(context));
             String message="The recorded GPS location for encounter #"+request.getParameter("number")+" has been updated from "+oldGPS+" to "+newGPS+".";
-            ServletUtilities.informInterestedParties(request, request.getParameter("number"), message);
+            ServletUtilities.informInterestedParties(request, request.getParameter("number"), message,context);
             }
           else{
             
-            out.println(ServletUtilities.getHeader(request));
-            out.println("<strong>Failure:</strong> Encounter GPS location was NOT updated. This encounter is currently being modified by another user. Please try this operation again in a few seconds. If this condition persists, contact the webmaster.");
-            out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter <strong>"+request.getParameter("number")+"</strong></a></p>\n");
-            out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-                out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-                out.println(ServletUtilities.getFooter());
+            //out.println(ServletUtilities.getHeader(request));
+            out.println("<strong>Failure:</strong> Encounter GPS location was NOT updated. An error was encountered. Please try this operation again in a few seconds. If this condition persists, contact the webmaster.");
+            //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter <strong>"+request.getParameter("number")+"</strong></a></p>\n");
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            
             
             }
           
         }   
           
         else {
-          out.println(ServletUtilities.getHeader(request));
+          ///out.println(ServletUtilities.getHeader(request));
           out.println("<strong>Error:</strong> I don't have enough information to complete your request.");
-          out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter <strong>"+request.getParameter("number")+"</strong></a></p>\n");
-          out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-              out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-              out.println(ServletUtilities.getFooter());  
+          response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+          //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation(request)+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter <strong>"+request.getParameter("number")+"</strong></a></p>\n");
+         out.println(ServletUtilities.getFooter(context));  
             
           }
         

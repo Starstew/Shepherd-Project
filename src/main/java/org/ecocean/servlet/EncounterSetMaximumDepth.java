@@ -29,8 +29,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 
 
 public class EncounterSetMaximumDepth extends HttpServlet {
@@ -52,7 +54,10 @@ public class EncounterSetMaximumDepth extends HttpServlet {
 
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("EncounterSetMaximumDepth.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -104,33 +109,31 @@ public class EncounterSetMaximumDepth extends HttpServlet {
 
       if (!locked) {
         myShepherd.commitDBTransaction();
-        out.println(ServletUtilities.getHeader(request));
+        //out.println(ServletUtilities.getHeader(request));
+        response.setStatus(HttpServletResponse.SC_OK);
         out.println("<strong>Success:</strong> Encounter depth has been updated from " + oldDepth + " meters to " + newDep+".");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        //out.println(ServletUtilities.getFooter(context));
         String message = "The size of encounter#" + request.getParameter("number") + " has been updated from " + oldDepth + " meters to " + request.getParameter("depth") + " meters.";
-        ServletUtilities.informInterestedParties(request, request.getParameter("number"), message);
+        ServletUtilities.informInterestedParties(request, request.getParameter("number"), message,context);
       }
       else {
-        out.println(ServletUtilities.getHeader(request));
+        //out.println(ServletUtilities.getHeader(request));
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         out.println("<strong>Failure:</strong> Encounter depth was NOT updated because another user is currently modifying the record for this encounter or the value input does not translate to a valid depth number.");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        //out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+        
+        //out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+        //out.println(ServletUtilities.getFooter(context));
 
 
       }
     }
     else {
-      out.println(ServletUtilities.getHeader(request));
+      //out.println(ServletUtilities.getHeader(request));
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       out.println("<strong>Error:</strong> I don't have enough information to complete your request.");
-      out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-      out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-      out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-      out.println(ServletUtilities.getFooter());
+      //out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+     // out.println(ServletUtilities.getFooter(context));
 
     }
 

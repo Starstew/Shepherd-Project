@@ -28,8 +28,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 
 
 public class IndividualSetSex extends HttpServlet {
@@ -45,7 +47,10 @@ public class IndividualSetSex extends HttpServlet {
   }
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("IndividualSetSex.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -58,14 +63,21 @@ public class IndividualSetSex extends HttpServlet {
 
       myShepherd.beginDBTransaction();
       MarkedIndividual changeMe = myShepherd.getMarkedIndividual(request.getParameter("individual"));
-      String oldSex = "Unknown";
+      String oldSex = "null";
+      String newSex = "null";
       try {
 
         if (changeMe.getSex() != null) {
           oldSex = changeMe.getSex();
         }
-        changeMe.setSex(request.getParameter("selectSex"));
-        changeMe.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>Changed sex from " + oldSex + " to " + request.getParameter("selectSex") + ".</p>");
+        if(request.getParameter("selectSex")!=null){
+          changeMe.setSex(request.getParameter("selectSex"));
+          newSex=request.getParameter("selectSex");
+         }
+        else{changeMe.setSex(null);}
+        //changeMe.setSex(request.getParameter("selectSex"));
+        
+        changeMe.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>Changed sex from " + oldSex + " to " + newSex + ".</p>");
       } catch (Exception le) {
         //System.out.println("Hit locked exception on action: "+action);
         locked = true;
@@ -78,35 +90,53 @@ public class IndividualSetSex extends HttpServlet {
         myShepherd.commitDBTransaction(action);
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Success:</strong> Sex has been updated from " + oldSex + " to " + request.getParameter("selectSex") + ".");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + request.getParameter("individual") + "\">Return to <strong>" + request.getParameter("individual") + "</strong></a></p>\n");
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + request.getParameter("individual") + "\">Return to <strong>" + request.getParameter("individual") + "</strong></a></p>\n");
         //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation()+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter #"+request.getParameter("number")+"</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        //out.println("<p><a href=\"encounters/allEncounters.jsp?rejects=true\">View all rejected encounters</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+        int allStatesSize=allStates.size();
+        if(allStatesSize>0){
+          for(int i=0;i<allStatesSize;i++){
+            String stateName=allStates.get(i);
+            out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+          }
+        }
+        out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+        out.println(ServletUtilities.getFooter(context));
         String message = "The sex for " + request.getParameter("individual") + " has been updated from " + oldSex + " to " + request.getParameter("selectSex") + ".";
-        ServletUtilities.informInterestedIndividualParties(request, request.getParameter("individual"), message);
+        ServletUtilities.informInterestedIndividualParties(request, request.getParameter("individual"), message,context);
       } else {
 
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Failure:</strong> Sex was NOT updated. This record is currently being modified by another user. Please try this operation again in a few seconds.");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + request.getParameter("individual") + "\">Return to <strong>" + request.getParameter("individual") + "</strong></a></p>\n");
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + request.getParameter("individual") + "\">Return to <strong>" + request.getParameter("individual") + "</strong></a></p>\n");
         //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation()+"/encounters/encounter.jsp?number="+request.getParameter("number")+"\">Return to encounter #"+request.getParameter("number")+"</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        //out.println("<p><a href=\"encounters/allEncounters.jsp?rejects=true\">View all rejected encounters</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+        int allStatesSize=allStates.size();
+        if(allStatesSize>0){
+          for(int i=0;i<allStatesSize;i++){
+            String stateName=allStates.get(i);
+            out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+          }
+        }
+        out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+        out.println(ServletUtilities.getFooter(context));
 
       }
 
     } else {
       out.println(ServletUtilities.getHeader(request));
       out.println("<strong>Error:</strong> I don't have enough information to complete your request.");
-      out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + request.getParameter("individual") + "\">Return to <strong>" + request.getParameter("individual") + "</strong></a></p>\n");
-      out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-      out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-      //out.println("<p><a href=\"encounters/allEncounters.jsp?rejects=true\">View all rejected encounters</a></font></p>");
-      out.println(ServletUtilities.getFooter());
+      out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + request.getParameter("individual") + "\">Return to <strong>" + request.getParameter("individual") + "</strong></a></p>\n");
+      List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+      int allStatesSize=allStates.size();
+      if(allStatesSize>0){
+        for(int i=0;i<allStatesSize;i++){
+          String stateName=allStates.get(i);
+          out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+        }
+      }
+      out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+      out.println(ServletUtilities.getFooter(context));
 
     }
 

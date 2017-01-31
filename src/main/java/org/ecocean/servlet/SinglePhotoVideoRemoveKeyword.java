@@ -26,8 +26,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 
 
 public class SinglePhotoVideoRemoveKeyword extends HttpServlet {
@@ -43,7 +45,10 @@ public class SinglePhotoVideoRemoveKeyword extends HttpServlet {
   }
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("SinglePhotoVideoRemoveKeyword.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -73,16 +78,30 @@ public class SinglePhotoVideoRemoveKeyword extends HttpServlet {
           out.println(ServletUtilities.getHeader(request));
           out.println("<strong>Success:</strong> The keyword <i>" + readableName + "</i> was removed from the image.");
           out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-          out.println("<p><a href=\"../encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-          out.println(ServletUtilities.getFooter());
+          List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+          int allStatesSize=allStates.size();
+          if(allStatesSize>0){
+            for(int i=0;i<allStatesSize;i++){
+              String stateName=allStates.get(i);
+              out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+            }
+          }
+          out.println(ServletUtilities.getFooter(context));
         } else {
           out.println(ServletUtilities.getHeader(request));
           out.println("<strong>Failure:</strong> I have NOT removed this keyword from the photo/video. This keyword is currently being modified by another user.");
           out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-          out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-          out.println("<p><a href=\"allIndividuals.jsp\">View all sharks</a></font></p>");
+          List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+          int allStatesSize=allStates.size();
+          if(allStatesSize>0){
+            for(int i=0;i<allStatesSize;i++){
+              String stateName=allStates.get(i);
+              out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+            }
+          }
+          out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
 
-          out.println(ServletUtilities.getFooter());
+          out.println(ServletUtilities.getFooter(context));
         }
       }
 
@@ -91,9 +110,16 @@ public class SinglePhotoVideoRemoveKeyword extends HttpServlet {
 
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Error:</strong> I don't have enough information to complete your request.");
-       out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all sharks</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+        int allStatesSize=allStates.size();
+        if(allStatesSize>0){
+          for(int i=0;i<allStatesSize;i++){
+            String stateName=allStates.get(i);
+            out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+          }
+        }
+        out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+        out.println(ServletUtilities.getFooter(context));
       }
 
 

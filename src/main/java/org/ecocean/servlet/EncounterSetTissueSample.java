@@ -27,6 +27,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 
@@ -43,7 +44,10 @@ public class EncounterSetTissueSample extends HttpServlet {
   }
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("EncounterSetTissueSample.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -54,19 +58,21 @@ public class EncounterSetTissueSample extends HttpServlet {
 
     sharky = request.getParameter("encounter");
     myShepherd.beginDBTransaction();
+    
     if ((myShepherd.isEncounter(sharky)) && (request.getParameter("sampleID") != null) && (!request.getParameter("sampleID").equals(""))) {
+      String sampleID=request.getParameter("sampleID").trim();
       Encounter enc = myShepherd.getEncounter(sharky);
       try {
         
         
         
         TissueSample genSample=new TissueSample();
-        if(myShepherd.isTissueSample(request.getParameter("sampleID"), sharky)){
-          genSample=myShepherd.getTissueSample(request.getParameter("sampleID"), sharky);
+        if(myShepherd.isTissueSample(sampleID, sharky)){
+          genSample=myShepherd.getTissueSample(sampleID, sharky);
           genSample.resetAbstractClassParameters(request);
         }
         else{
-          genSample=new TissueSample(enc.getCatalogNumber(), request.getParameter("sampleID"), request);
+          genSample=new TissueSample(enc.getCatalogNumber(), sampleID, request);
           enc.addTissueSample(genSample);
         }
         
@@ -83,32 +89,31 @@ public class EncounterSetTissueSample extends HttpServlet {
       catch (Exception le) {
         locked = true;
         myShepherd.rollbackDBTransaction();
-        myShepherd.closeDBTransaction();
+        
       }
 
       if (!locked) {
         myShepherd.commitDBTransaction();
-        myShepherd.closeDBTransaction();
         out.println(ServletUtilities.getHeader(request));
-        out.println("<strong>Success!</strong> I have successfully set the tissue sample for encounter " + sharky + ".</p>");
+        out.println("<strong>Success!</strong> I have successfully set the biological sample for encounter " + sharky + ".</p>");
 
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + sharky + "\">Return to encounter " + sharky + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + sharky + "\">Return to encounter " + sharky + "</a></p>\n");
+        out.println(ServletUtilities.getFooter(context));
         } 
       else {
 
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Failure!</strong> This encounter is currently being modified by another user or is inaccessible. Please wait a few seconds before trying to modify this encounter again.");
 
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + sharky + "\">Return to encounter " + sharky + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + sharky + "\">Return to encounter " + sharky + "</a></p>\n");
+        out.println(ServletUtilities.getFooter(context));
 
       }
     } else {
       myShepherd.rollbackDBTransaction();
       out.println(ServletUtilities.getHeader(request));
-      out.println("<strong>Error:</strong> I was unable to set the tissue sample. I cannot find the encounter that you intended it for in the database.");
-      out.println(ServletUtilities.getFooter());
+      out.println("<strong>Error:</strong> I was unable to set the biological sample. I cannot find the encounter that you intended it for in the database.");
+      out.println(ServletUtilities.getFooter(context));
 
     }
     out.close();

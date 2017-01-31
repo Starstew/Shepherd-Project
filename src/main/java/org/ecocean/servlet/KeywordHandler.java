@@ -22,14 +22,19 @@ package org.ecocean.servlet;
 import org.ecocean.CommonConfiguration;
 import org.ecocean.Keyword;
 import org.ecocean.Shepherd;
+import org.ecocean.SinglePhotoVideo;
 
+import javax.jdo.Query;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 
 //import javax.jdo.*;
 //import com.poet.jdo.*;
@@ -49,7 +54,11 @@ public class KeywordHandler extends HttpServlet {
   }
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("KeywordHandler.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -69,61 +78,55 @@ public class KeywordHandler extends HttpServlet {
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Success:</strong> The new image indexing keyword <em>" + readableName + "</em> has been added.");
         //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation()+"/individuals.jsp?number="+request.getParameter("shark")+"\">Return to shark <strong>"+request.getParameter("shark")+"</strong></a></p>\n");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/appadmin/kwAdmin.jsp\">Return to keyword administration page.</a></p>\n");
-        out.println("<p><a href=\"../encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/appadmin/kwAdmin.jsp\">Return to keyword administration page.</a></p>\n");
+        List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+        int allStatesSize=allStates.size();
+        if(allStatesSize>0){
+          for(int i=0;i<allStatesSize;i++){
+            String stateName=allStates.get(i);
+            out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+          }
+        }
+        out.println(ServletUtilities.getFooter(context));
 
       } 
       else if ((action.equals("removeWord")) && (request.getParameter("keyword") != null)) {
         myShepherd.beginDBTransaction();
-        Keyword word = myShepherd.getKeyword(request.getParameter("keyword"));
+        Keyword word = myShepherd.getKeyword(request.getParameter("keyword").trim());
         String desc = word.getReadableName();
-        myShepherd.throwAwayKeyword(word);
+        
+        //need to first delete the keyword from all SinglePhotoVIdeos it is assigned to
+        List<SinglePhotoVideo> photos=myShepherd.getAllSinglePhotoVideosWithKeyword(word);
+        int numPhotos=photos.size();
+        for(int i=0;i<numPhotos;i++){
+        	SinglePhotoVideo spv=photos.get(i);
+        	spv.removeKeyword(word);
+        	myShepherd.commitDBTransaction();
+        	myShepherd.beginDBTransaction();
+        }
+        
+        //now we can safely delete the Keyword object
+        myShepherd.getPM().deletePersistent(word);
+        
+        
         myShepherd.commitDBTransaction();
 
         //confirm success
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Success:</strong> The image indexing keyword <i>" + desc + "</i> has been removed.");
         //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation()+"/individuals.jsp?number="+request.getParameter("shark")+"\">Return to shark <strong>"+request.getParameter("shark")+"</strong></a></p>\n");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/appadmin/kwAdmin.jsp\">Return to keyword administration page.</a></p>\n");
-        out.println("<p><a href=\"../encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/appadmin/kwAdmin.jsp\">Return to keyword administration page.</a></p>\n");
+        List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+        int allStatesSize=allStates.size();
+        if(allStatesSize>0){
+          for(int i=0;i<allStatesSize;i++){
+            String stateName=allStates.get(i);
+            out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+          }
+        }
+        out.println(ServletUtilities.getFooter(context));
       } 
-      /*
-      else if ((action.equals("addPhoto")) && (request.getParameter("photoName") != null) && (request.getParameter("keyword") != null) && (request.getParameter("number") != null)) {
-        boolean locked = false;
-        String readableName = "";
-        myShepherd.beginDBTransaction();
-        try {
-          Keyword word = myShepherd.getKeyword(request.getParameter("keyword"));
-          word.addImageName(request.getParameter("number") + "/" + request.getParameter("photoName"));
-          readableName = word.getReadableName();
-        } catch (Exception le) {
-          locked = true;
-          myShepherd.rollbackDBTransaction();
-          le.printStackTrace();
-        }
-        if (!locked) {
-
-          myShepherd.commitDBTransaction();
-
-          //confirm success
-          out.println(ServletUtilities.getHeader(request));
-          out.println("<strong>Success:</strong> The image name " + request.getParameter("photoName") + " has been added to indexing keyword <i>" + readableName + "</i>.");
-          //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation()+"/individuals.jsp?number="+request.getParameter("shark")+"\">Return to shark <strong>"+request.getParameter("shark")+"</strong></a></p>\n");
-          out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-          out.println("<p><a href=\"../encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-          out.println(ServletUtilities.getFooter());
-        } else {
-          out.println(ServletUtilities.getHeader(request));
-          out.println("<strong>Failure:</strong> I have NOT added this keyword to the photo. This keyword is currently being modified by another user.");
-          out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-          out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-          out.println("<p><a href=\"allIndividuals.jsp\">View all sharks</a></font></p>");
-
-          out.println(ServletUtilities.getFooter());
-        }
-      }*/
+   
 
       //edit the text of a keyword
       else if ((action.equals("rename")) && (request.getParameter("keyword") != null) && (request.getParameter("newName") != null)) {
@@ -137,34 +140,25 @@ public class KeywordHandler extends HttpServlet {
         //confirm success
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Success:</strong> The keyword <i>" + oldName + "</i> has been changed to <i>" + request.getParameter("newName") + "</i>.");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/appadmin/kwAdmin.jsp\">Return to keyword administration.</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/appadmin/kwAdmin.jsp\">Return to keyword administration.</a></font></p>");
+        out.println(ServletUtilities.getFooter(context));
       } 
-      /*
-        else if ((action.equals("removePhoto")) && (request.getParameter("photoName") != null) && (request.getParameter("keyword") != null) && (request.getParameter("number") != null)) {
-        myShepherd.beginDBTransaction();
-        Keyword word = myShepherd.getKeyword(request.getParameter("keyword"));
-        word.removeImageName(request.getParameter("number") + "/" + request.getParameter("photoName"));
-        String readableName = word.getReadableName();
-        myShepherd.commitDBTransaction();
-
-        //confirm success
-        out.println(ServletUtilities.getHeader(request));
-        out.println("<strong>Success:</strong> The image name " + request.getParameter("photoName") + " has been removed from indexing keyword <i>" + readableName + "</i>.");
-        //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation()+"/individuals.jsp?number="+request.getParameter("shark")+"\">Return to shark <strong>"+request.getParameter("shark")+"</strong></a></p>\n");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-        out.println("<p><a href=\"../encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println(ServletUtilities.getFooter());
-      }*/ 
+      
       else {
 
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Error:</strong> I don't have enough information to complete your request.");
         //out.println("<p><a href=\"http://"+CommonConfiguration.getURLLocation()+"/individuals.jsp?number="+request.getParameter("shark")+"\">Return to shark <strong>"+request.getParameter("shark")+"</strong></a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all sharks</a></font></p>");
-        //out.println("<p><a href=\"encounters/allEncounters.jsp?rejects=true\">View all rejected encounters</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        List<String> allStates=CommonConfiguration.getIndexedPropertyValues("encounterState",context);
+        int allStatesSize=allStates.size();
+        if(allStatesSize>0){
+          for(int i=0;i<allStatesSize;i++){
+            String stateName=allStates.get(i);
+            out.println("<p><a href=\"encounters/searchResults.jsp?state="+stateName+"\">View all "+stateName+" encounters</a></font></p>");   
+          }
+        }
+        out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+        out.println(ServletUtilities.getFooter(context));
       }
 
 
@@ -173,7 +167,7 @@ public class KeywordHandler extends HttpServlet {
       out.println(ServletUtilities.getHeader(request));
       out.println("<p>I did not receive enough data to process your command. No action was indicated to me.</p>");
       out.println("<p>Please try again or <a href=\"welcome.jsp\">login here</a>.");
-      out.println(ServletUtilities.getFooter());
+      out.println(ServletUtilities.getFooter(context));
       //npe2.printStackTrace();
     }
     myShepherd.closeDBTransaction();

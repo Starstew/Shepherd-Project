@@ -26,8 +26,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Map;
 import java.util.Vector;
 
 //import javax.jdo.*;
@@ -49,7 +51,12 @@ public class TrackIt extends HttpServlet {
 
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    String langCode = ServletUtilities.getLanguageCode(request);
+    
+    Shepherd myShepherd = new Shepherd(context);
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -59,9 +66,10 @@ public class TrackIt extends HttpServlet {
 
     email = request.getParameter("email");
     encounterNumber = request.getParameter("number");
+    Encounter enc = null;
     myShepherd.beginDBTransaction();
     if ((request.getParameter("number") != null) && (myShepherd.isEncounter(request.getParameter("number"))) && (email != null) && (!email.equals("")) && (email.indexOf("@") != -1)) {
-      Encounter enc = myShepherd.getEncounter(encounterNumber);
+      enc = myShepherd.getEncounter(encounterNumber);
 
 
       //int positionInList=0;
@@ -81,16 +89,20 @@ public class TrackIt extends HttpServlet {
         out.println("<strong>Success!</strong> I have successfully added the tracking of encounter#" + encounterNumber + " for e-mail address " + email + ".");
 
         out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
-        Vector e_images = new Vector();
+        out.println(ServletUtilities.getFooter(context));
+
         String message = "This is a confirmation that e-mail tracking of data changes to encounter " + encounterNumber + " has now started. You should receive e-mail updates any time changes to this encounter are made.";
-        NotificationMailer mailer = new NotificationMailer(CommonConfiguration.getMailHost(), CommonConfiguration.getAutoEmailAddress(), email, ("Encounter data tracking started for encounter: " + encounterNumber), message, e_images);
+        Map<String, String> tagMap = NotificationMailer.createBasicTagMap(request, enc);
+        NotificationMailer mailer = new NotificationMailer(context, null, email, "encounterTrackingStarted", message);
+//        ThreadPoolExecutor es = MailThreadExecutorService.getExecutorService();
+//        es.execute(mailer);
+//        es.shutdown();
       } else {
 
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Failure!</strong> This encounter is currently being modified by another user, or the database is locked. Please wait a few seconds before trying to add this e-mail address for tracking again.");
         out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + encounterNumber + "\">Return to encounter " + encounterNumber + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        out.println(ServletUtilities.getFooter(context));
 
 
       }
@@ -117,16 +129,20 @@ public class TrackIt extends HttpServlet {
         out.println("<strong>Success!</strong> I have successfully added the tracking of " + shark + " for e-mail address " + email + ".");
 
         out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + shark + "\">Return to " + shark + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        out.println(ServletUtilities.getFooter(context));
         Vector e_images = new Vector();
         String message = "This is a confirmation that e-mail tracking of data changes to " + shark + " has now started. You should receive e-mail updates any time changes to this record are made.";
-        NotificationMailer mailer = new NotificationMailer(CommonConfiguration.getMailHost(), CommonConfiguration.getAutoEmailAddress(), email, ("Data tracking started for encounter: " + shark), message, e_images);
+        Map<String, String> tagMap = NotificationMailer.createBasicTagMap(request, enc);
+        NotificationMailer mailer = new NotificationMailer(context, null, email, "encounterTrackingStarted", message);
+//        ThreadPoolExecutor es = MailThreadExecutorService.getExecutorService();
+//        es.execute(mailer);
+//        es.shutdown();
       } else {
 
         out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Failure!</strong> This record is currently being modified by another user, or the database is locked. Please wait a few seconds before trying to add this e-mail address for tracking again.");
         out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/individuals.jsp?number=" + shark + "\">Return to " + shark + "</a></p>\n");
-        out.println(ServletUtilities.getFooter());
+        out.println(ServletUtilities.getFooter(context));
 
 
       }
@@ -136,7 +152,7 @@ public class TrackIt extends HttpServlet {
       myShepherd.rollbackDBTransaction();
       out.println(ServletUtilities.getHeader(request));
       out.println("<strong>Error:</strong> I was unable to add your e-mail address to the tracking list. I cannot find the record that you indicated in the database, or your e-mail address is invalid.");
-      out.println(ServletUtilities.getFooter());
+      out.println(ServletUtilities.getFooter(context));
 
     }
     out.close();

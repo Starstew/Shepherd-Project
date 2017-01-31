@@ -28,6 +28,7 @@ public class Adoption implements java.io.Serializable {
   static final long serialVersionUID = -1020952058521486782L;
 
   private String id;
+  private String stripeCustomerId;
   private String adopterName;
   private String adopterAddress;
   private String adopterEmail;
@@ -97,6 +98,10 @@ public class Adoption implements java.io.Serializable {
     return id;
   }
 
+  public String getStripeCustomerId() {
+    return stripeCustomerId;
+  }
+
   public String getAdoptionType() {
     return adoptionType;
   }
@@ -114,7 +119,10 @@ public class Adoption implements java.io.Serializable {
   }
 
   public void setAdopterImage(String img) {
-    this.adopterImage = img;
+    if(img==null){ img=null;}
+    else{
+    	this.adopterImage = img;
+	  }
   }
 
   public void setAdoptionStartDate(String date) {
@@ -147,6 +155,10 @@ public class Adoption implements java.io.Serializable {
 
   public void setID(String i) {
     this.id = i;
+  }
+
+  public void setStripeCustomerId(String sci) {
+    this.stripeCustomerId = sci;
   }
 
   public void setAdoptionType(String at) {

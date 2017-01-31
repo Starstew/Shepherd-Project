@@ -1,32 +1,15 @@
-<%--
-  ~ The Shepherd Project - A Mark-Recapture Framework
-  ~ Copyright (C) 2011 Jason Holmberg
-  ~
-  ~ This program is free software; you can redistribute it and/or
-  ~ modify it under the terms of the GNU General Public License
-  ~ as published by the Free Software Foundation; either version 2
-  ~ of the License, or (at your option) any later version.
-  ~
-  ~ This program is distributed in the hope that it will be useful,
-  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  ~ GNU General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU General Public License
-  ~ along with this program; if not, write to the Free Software
-  ~ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-  --%>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@ page contentType="text/html; charset=utf-8" language="java"
-         import="org.ecocean.CommonConfiguration,org.ecocean.Shepherd,org.ecocean.grid.*, java.util.ArrayList,java.util.Iterator, java.util.Properties, java.util.concurrent.ThreadPoolExecutor" %>
+         import="org.ecocean.servlet.ServletUtilities,org.ecocean.*,org.ecocean.grid.*, java.util.ArrayList,java.util.Iterator, java.util.Properties, java.util.concurrent.ThreadPoolExecutor" %>
 <%
 
+//String context="context0";
+String context=ServletUtilities.getContext(request);
   //concurrency examination for creation and removal threads
   ThreadPoolExecutor es = SharkGridThreadExecutorService.getExecutorService();
 
 //get a shepherd
-  Shepherd myShepherd = new Shepherd();
+  Shepherd myShepherd = new Shepherd(context);
+  myShepherd.setAction("scanTaskAdmin.jsp");
 
 //summon thee a gridManager!
   GridManager gm = GridManagerFactory.getGridManager();
@@ -69,118 +52,93 @@
 
 //setup our Properties object to hold all properties
   Properties props = new Properties();
-  String langCode = "en";
+  //String langCode = "en";
 
-  //check what language is requested
-  if (request.getParameter("langCode") != null) {
-    if (request.getParameter("langCode").equals("fr")) {
-      langCode = "fr";
-    }
-    if (request.getParameter("langCode").equals("de")) {
-      langCode = "de";
-    }
-    if (request.getParameter("langCode").equals("es")) {
-      langCode = "es";
-    }
-  }
+String langCode=ServletUtilities.getLanguageCode(request);
+    
 
-  props.load(getClass().getResourceAsStream("/bundles/" + langCode + "/submit.properties"));
+  //props.load(getClass().getResourceAsStream("/bundles/" + langCode + "/submit.properties"));
+  props=ShepherdProperties.getProperties("submit.properties", langCode, context);
 
-
-  //load our variables for the submit page
-  String title = props.getProperty("submit_title");
-  String submit_maintext = props.getProperty("submit_maintext");
-  String submit_reportit = props.getProperty("reportit");
-  String submit_language = props.getProperty("language");
-  String what_do = props.getProperty("what_do");
-  String read_overview = props.getProperty("read_overview");
-  String see_all_encounters = props.getProperty("see_all_encounters");
-  String see_all_sharks = props.getProperty("see_all_sharks");
-  String report_encounter = props.getProperty("report_encounter");
-  String log_in = props.getProperty("log_in");
-  String contact_us = props.getProperty("contact_us");
-  String search = props.getProperty("search");
-  String encounter = props.getProperty("encounter");
-  String shark = props.getProperty("shark");
-  String join_the_dots = props.getProperty("join_the_dots");
-  String menu = props.getProperty("menu");
-  String last_sightings = props.getProperty("last_sightings");
-  String more = props.getProperty("more");
-  String ws_info = props.getProperty("ws_info");
-  String about = props.getProperty("about");
-  String contributors = props.getProperty("contributors");
-  String forum = props.getProperty("forum");
-  String blog = props.getProperty("blog");
-  String area = props.getProperty("area");
-  String match = props.getProperty("match");
 
 
 %>
 
-<html>
-<head>
-  <title><%=CommonConfiguration.getHTMLTitle() %>
-  </title>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <meta name="Description"
-        content="<%=CommonConfiguration.getHTMLDescription() %>"/>
-  <meta name="Keywords"
-        content="<%=CommonConfiguration.getHTMLKeywords() %>"/>
-  <meta name="Author" content="<%=CommonConfiguration.getHTMLAuthor() %>"/>
-  <link href="<%=CommonConfiguration.getCSSURLLocation(request) %>"
-        rel="stylesheet" type="text/css"/>
-  <link rel="shortcut icon"
-        href="<%=CommonConfiguration.getHTMLShortcutIcon() %>"/>
+<style>
+td, th {
+    border: 1px solid black;font-size: 10pt;
 
-  <style type="text/css">
-    <!--
-    .style1 {
-      font-size: x-small;
-      font-weight: bold;
-    }
+}
+table {
+    border-collapse: collapse;
+}
+</style>
 
-    .style2 {
-      font-size: x-small;
-    }
-
-    -->
-  </style>
-</head>
-
-<body>
-<div id="wrapper">
-<div id="page">
-<jsp:include page="../header.jsp" flush="true">
-  <jsp:param name="isAdmin" value="<%=request.isUserInRole(\"admin\")%>" />
-</jsp:include>
-<div id="main">
-
-<div id="maincol-wide">
-
-<div id="maintext">
-<h1 class="intro">Grid Administration
-  <a href="<%=CommonConfiguration.getWikiLocation()%>sharkgrid" target="_blank"><img
+<jsp:include page="../header.jsp" flush="true" />
+     <div class="container maincontent">
+<h1>Grid Administration
+  <a href="<%=CommonConfiguration.getWikiLocation(context)%>sharkgrid" target="_blank"><img
     src="../images/information_icon_svg.gif" alt="Help" border="0" align="absmiddle"></a></h1>
 
 <%
   myShepherd.beginDBTransaction();
   try {
 
+String showContext="My ";
+
+if(request.getParameter("showAll")==null){
+%>
+<p class="caption">Your scanTasks are shown below. Click <b>Show All scanTasks</b> to see all of the tasks in the grid for all users.</p>
+
+<p class="caption">Refreshing results in <span id="countdown"></span> seconds.</p>
+  <script type="text/javascript">
+  (function countdown(remaining) {
+	    if(remaining === 0)
+	        location.reload(true);
+	    document.getElementById('countdown').innerHTML = remaining;
+	    setTimeout(function(){ countdown(remaining - 1); }, 1000);
+	})(30);
+  </script>
+
+<p>
+	<a style="cursor:pointer;color: blue" class="caption" href="scanTaskAdmin.jsp?showAll=true">Show All scanTasks</a>
+</p>
+<%
+}
+else{
+	showContext="All ";
+%>
+<p class="caption">All scanTasks are shown below. Click <b>Show My scanTasks</b> to see only your tasks below.</p>
+
+<p>
+	<a style="cursor:pointer;color: blue" class="caption" href="scanTaskAdmin.jsp">Show My scanTasks</a>
+</p>
+<%
+}
 %>
 
-<h3>Pending scanTasks</h3>
-<table border="1" cellpadding="2">
+<h3><%=showContext %>Pending scanTasks</h3>
+<table class="table">
+<thead>
   <tr>
-    <td bgcolor="#CCCCCC"><strong>Identifier</strong></td>
-    <td bgcolor="#CCCCCC"><strong>User</strong></td>
-    <td bgcolor="#CCCCCC"><strong>Completion</strong></td>
-    <td bgcolor="#CCCCCC"><strong>Actions</strong></td>
+    <th><strong>Identifier</strong></th>
+    <th><strong>User</strong></th>
+    <th><strong>Completion</strong></th>
+    <th colspan="2"><strong>Actions</strong></th>
   </tr>
+  </thead>
+  <tbody>
   <%
-    Iterator it = myShepherd.getAllScanTasksNoQuery();
+  Iterator<ScanTask> it = null;
+  if(request.getParameter("showAll")!=null){it=myShepherd.getAllScanTasksNoQuery();}
+  else{it=myShepherd.getAllScanTasksForUser(request.getUserPrincipal().toString()).iterator();}
+  	
+    
+    
+    
     int scanNum = 0;
-    while (it.hasNext()) {
-      ScanTask st = (ScanTask) it.next();
+    while ((it!=null)&&(it.hasNext())) {
+      ScanTask st = it.next();
       if (!st.hasFinished()) {
         scanNum++;
         int numTotal = st.getNumComparisons();
@@ -189,35 +147,41 @@
 
         int numGenerated = gm.getNumWorkItemsIncompleteForTask(st.getUniqueNumber());
 
-        int numTaskTot = numComplete + numGenerated;
-        if ((st.getUniqueNumber().equals("TuningTask")) || (st.getUniqueNumber().equals("FalseMatchTask"))) {
-          numTaskTot = numGenerated;
-        }
-
+        //int numTaskTot = st.getNumComparisons();
+		String numTaskTot=numComplete+"/"+st.getNumComparisons();
+		if(st.getNumComparisons()==Integer.MAX_VALUE){numTaskTot="Building...";}
+        
+        
+   String styleString="";
+   if((request.getParameter("task")!=null)&&(st.getUniqueNumber().equals(request.getParameter("task")))){styleString="background-color: #66CCFF;border-collapse:collapse;";}
+        
   %>
-  <tr>
-    <td><%=scanNum%>. <%=st.getUniqueNumber()%>
+  <tr id="<%=st.getUniqueNumber()%>" >
+    <td style="<%=styleString %>"><%=scanNum%>. <%=st.getUniqueNumber()%>
     </td>
     <td><%=st.getSubmitter()%>
     </td>
-    <td><%=numComplete%>/<%=numTaskTot%>
+    <td><%=numTaskTot%>
     </td>
     <td>
-      <%if ((numComplete > 0) && (numComplete >= numTaskTot)) {%>
+      <%
+      if ((numComplete > 0) && (numComplete >= st.getNumComparisons())) {
+      %>
       <form name="scanNum<%=scanNum%>_writeOut" method="post"
-            action="../WriteOutScanTask"><input name="number" type="hidden"
+            action="../<%=CommonConfiguration.getProperty("patternMatchingEndPointServletName", context) %>"><input name="number" type="hidden"
                                                 id="number" value="<%=st.getUniqueNumber()%>"> <%
-        if (st.getUniqueNumber().equals("TuningTask")) {
-      %> Boost weight for failed matches<br/>
-        (default is 1): <input name="boostWeight" type="text" id="boostWeight"
-                               size="5" maxlength="10"/> <br/>
-        <%
-          }
+
         %> <input name="scanNum<%=scanNum%>_WriteResult" type="submit"
                   id="scanNum<%=scanNum%>_WriteResult" value="Write Result"></form>
-      <br> <%
+       <%
       }
-      if ((request.isUserInRole("admin")) || (request.getRemoteUser().equals(st.getSubmitter()))) {%>
+      boolean hasPermissionForThisEncounter=false;
+      if ((request.isUserInRole("admin")) || (request.getRemoteUser().equals(st.getSubmitter()))) {hasPermissionForThisEncounter=true;}
+      else if(myShepherd.isEncounter(st.getUniqueNumber().replaceAll("scanL", "").replaceAll("scanR", ""))){
+    	Encounter scanEnc=myShepherd.getEncounter(st.getUniqueNumber().replaceAll("scanL", "").replaceAll("scanR", ""));
+    	if((scanEnc.getLocationID()!=null)&&(request.isUserInRole(scanEnc.getLocationID()))){hasPermissionForThisEncounter=true;}  	
+      }
+      if (hasPermissionForThisEncounter) {%>
       <form name="scanNum<%=scanNum%>" method="post"
             action="../ScanTaskHandler"><input name="action" type="hidden"
                                                id="action" value="removeTask"><input name="taskID"
@@ -225,6 +189,31 @@
                                                                                      id="taskID"
                                                                                      value="<%=st.getUniqueNumber()%>"><input
         name="delete" type="submit" id="delete" value="Delete"></form>
+        </td>
+        <td>
+        <%
+        if(request.isUserInRole("admin")){
+        %>
+              <form name="scanNum<%=scanNum%>" method="post" action="../ScanTaskHandler">
+              	<input name="action" type="hidden" id="action" value="addTask" />
+              	<input name="restart" type="hidden" id="restart" value="true" />
+              	<input name="encounterNumber" type="hidden" id="encounterNumber" value="<%=st.getUniqueNumber().replaceAll("scanL", "").replaceAll("scanR", "") %>" />
+              	<input name="taskID" type="hidden" id="taskID" value="<%=st.getUniqueNumber()%>" />
+              	
+              	<%
+              	if(st.getUniqueNumber().startsWith("scanR")){
+              	%>
+              		<input name="rightSide" type="hidden" id="restart" value="true" />
+              	<%
+              	}
+              	%>
+              	
+              		<input name="restart" type="submit" id="restart" value="Restart" />
+              </form>
+        <%
+        }
+        %>
+        
       <%
         }
       %>
@@ -235,23 +224,36 @@
       }
     }
   %>
+  </tbody>
 </table>
 
 
-<h3>Completed scanTasks</h3>
-<table border="1" cellpadding="2">
-  <tr>
-    <td width="62" bgcolor="#CCCCCC"><strong>Identifier</strong></td>
-    <td width="32" bgcolor="#CCCCCC"><strong>User</strong></td>
-    <td bgcolor="#CCCCCC"><strong>Results</strong></td>
-    <td bgcolor="#CCCCCC"><strong>Actions</strong></td>
+<h3><%=showContext %>Completed scanTasks</h3>
 
+  <table class="table">
+  <thead>
+  <tr>
+    <th width="62" class="ptcol"><strong>Identifier</strong></th>
+    <th width="32"><strong>User</strong></th>
+    <th><strong>Results</strong></th>
+    <th><strong>Actions</strong></th>
+	<th><strong>Individual ID</strong></th>
+	<th><strong>Enc. State</strong></th>
   </tr>
+  </thead>
+  <tbody>
   <%
-    Iterator it2 = myShepherd.getAllScanTasksNoQuery();
+    Iterator it2 = null;
+  if(request.getParameter("showAll")!=null){it2=myShepherd.getAllScanTasksNoQuery();}
+  else{it2=myShepherd.getAllScanTasksForUser(request.getUserPrincipal().toString()).iterator();}	
+  
     scanNum = 0;
-    while (it2.hasNext()) {
+    while ((it2!=null)&&(it2.hasNext())) {
       ScanTask st = (ScanTask) it2.next();
+      Encounter scanEnc=new Encounter();
+      if(myShepherd.isEncounter(st.getUniqueNumber().replaceAll("scanL", "").replaceAll("scanR", ""))){
+      	scanEnc=myShepherd.getEncounter(st.getUniqueNumber().replaceAll("scanL", "").replaceAll("scanR", ""));
+      }
       if (st.hasFinished()) {
 
         //determine if left or right-side scan
@@ -263,15 +265,19 @@
         }
 
         scanNum++;
-  %>
-  <tr>
+        
+        String styleString="";
+        if((request.getParameter("task")!=null)&&(st.getUniqueNumber().equals(request.getParameter("task")))){styleString="background-color: #66CCFF;border-collapse:collapse;";}
+             
+       %>
+       <tr id="<%=st.getUniqueNumber()%>" >
 
-    <td><%=st.getUniqueNumber()%>
+    <td style="<%=styleString %>"><%=st.getUniqueNumber()%>
     </td>
     <td><%=st.getSubmitter()%>
     </td>
     <%
-      String gotoURL = "http://" + CommonConfiguration.getURLLocation(request) + "/encounters/scanEndApplet.jsp";
+      String gotoURL = "//" + CommonConfiguration.getURLLocation(request) + "/"+CommonConfiguration.getProperty("patternMatchingResultsPage", context);
       if (st.getUniqueNumber().equals("TuningTask")) {
         gotoURL = "endTuningTask.jsp";
       }
@@ -287,7 +293,13 @@
         name="viewresult" type="submit" id="viewresult" value="View"></form>
     </td>
     <td>
-      <%if ((request.isUserInRole("admin")) || (request.getRemoteUser().equals(st.getSubmitter()))) {%>
+      <%      
+      boolean hasPermissionForThisEncounter=false;
+      if ((request.isUserInRole("admin")) || (request.getRemoteUser().equals(st.getSubmitter()))) {hasPermissionForThisEncounter=true;}
+      else if(myShepherd.isEncounter(st.getUniqueNumber().replaceAll("scanL", "").replaceAll("scanR", ""))){
+    	if((scanEnc.getLocationID()!=null)&&(request.isUserInRole(scanEnc.getLocationID()))){hasPermissionForThisEncounter=true;}  	
+      }
+      if (hasPermissionForThisEncounter) {%>
       <form name="scanNum<%=scanNum%>" method="post"
             action="../ScanTaskHandler"><input name="action" type="hidden"
                                                id="action" value="removeTask"><input name="taskID"
@@ -302,25 +314,35 @@
     </td>
 
 
-    <!-- don't list nodes
+
 						
 						<td>
-						
 						<%
-							int numNodes=st.getNodeLocations().size();
-							for(int d=0;d<numNodes;d++){ %>
-								<font size="-4"><%=(String)st.getNodeLocations().get(d)%></font><br>
-						<%
-							}
+						if((scanEnc.getIndividualID()!=null)&&(!scanEnc.getIndividualID().equals("Unassigned"))){
 						%>
-						</td> -->
+						<a href="../individuals.jsp?number=<%=scanEnc.getIndividualID()%>"><%=scanEnc.getIndividualID()%></a>
+						<%
+      					}
+      					else{
+						%>
+						&nbsp;
+						<%
+      					}
+						%>
+				
+						</td>
+						<td><%=scanEnc.getState() %></td>
 
   </tr>
   <%
       }
     }
   %>
+  </tbody>
 </table>
+
+
+
 
 <h3>gridManager statistics</h3>
 
@@ -331,19 +353,21 @@ single scan are allowed to exceed the total.</span>
 <%
   if (gm.getNumNodes() > 0) {
 %>
-<table border="1">
+<table class="table">
+<thead>
   <tr>
-    <td width="18" bgcolor="#CCCCCC"><span class="style1">IP</span></td>
-    <td width="38" bgcolor="#CCCCCC"><span class="style1">NodeID</span></td>
-    <td width="30" bgcolor="#CCCCCC"><span class="style1">#CPU</span></td>
-    <td width="51" bgcolor="#CCCCCC"><span class="style1">Targeted?</span></td>
-    <td width="62" bgcolor="#CCCCCC"><span class="style1">#
-		Finished</span></td>
-    <td width="71" bgcolor="#CCCCCC">
+    <th width="18"><span>IP</span></th>
+    <th width="38"><span>NodeID</span></th>
+    <th width="30"  ><span>#CPU</span></th>
+
+
+    <th width="71"  >
       <div align="left"><span class="style1">Chunk size</span></div>
-    </td>
+    </th>
 
   </tr>
+  </thead>
+  <tbody>
   <%
     ArrayList nodes = gm.getNodes();
     int numNodes = nodes.size();
@@ -357,8 +381,7 @@ single scan are allowed to exceed the total.</span>
     <td><span class="style2"><%=nd.ipAddress()%></span></td>
     <td><span class="style2"><%=nd.getNodeIdentifier()%></span></td>
     <td><span class="style2"><%=nd.numProcessors%></span></td>
-    <td><span class="style2"><%=nd.isTargeted()%></span></td>
-    <td><span class="style2"><%=nd.getNumComparisons()%></span></td>
+    
     <td><span class="style2"><%=nd.groupSize%></span></td>
 
 
@@ -368,6 +391,7 @@ single scan are allowed to exceed the total.</span>
       } //end if
     } //end for
   %>
+  </tbody>
 </table>
 <%}%>
 <p>% inefficent collisions (nodes checking in duplicate work) since
@@ -384,7 +408,7 @@ single scan are allowed to exceed the total.</span>
   if (request.isUserInRole("admin")) {
 %>
 <h3>gridManager adjustment</h3>
-<table>
+<table class="table">
   <tr>
     <form name="setNumAllowedNodes" id="setNumAllowedNodes" method="get"
           action="scanTaskAdmin.jsp">
@@ -436,7 +460,7 @@ single scan are allowed to exceed the total.</span>
 </table>
 <h3>Creation/deletion threads</h3>
 
-<p>Number of tasks creating/deleteing: <%=es.getActiveCount()%>
+<p>Number of tasks creating/deleting: <%=es.getActiveCount()%>
   (<%=(es.getTaskCount() - es.getCompletedTaskCount())%>
   total in queue)<br> <br>
 
@@ -444,6 +468,9 @@ single scan are allowed to exceed the total.</span>
   <%}%>
 
 </p>
+
+<p>Number left-side patterns in the potential match graph: <%=gm.getNumLeftPatterns() %></p>
+<p>Number right-side patterns in the potential match graph: <%=gm.getNumRightPatterns() %></p>
 <%
 
   } catch (Exception e) {
@@ -454,15 +481,13 @@ single scan are allowed to exceed the total.</span>
   myShepherd.rollbackDBTransaction();
   myShepherd.closeDBTransaction();
 
+  
+
 %>
+
 </div>
-<!-- end maintext --></div>
-<!-- end maincol -->
-<jsp:include page="../footer.jsp" flush="true">
-  <jsp:param name="noscript" value="noscript"/>
-</jsp:include>
-</div>
-<!-- end page --></div>
-<!--end wrapper -->
-</body>
-</html>
+
+
+
+<jsp:include page="../footer.jsp" flush="true" />
+

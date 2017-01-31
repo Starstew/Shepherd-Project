@@ -1,40 +1,20 @@
-<%--
-  ~ The Shepherd Project - A Mark-Recapture Framework
-  ~ Copyright (C) 2011 Jason Holmberg
-  ~
-  ~ This program is free software; you can redistribute it and/or
-  ~ modify it under the terms of the GNU General Public License
-  ~ as published by the Free Software Foundation; either version 2
-  ~ of the License, or (at your option) any later version.
-  ~
-  ~ This program is distributed in the hope that it will be useful,
-  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  ~ GNU General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU General Public License
-  ~ along with this program; if not, write to the Free Software
-  ~ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-  --%>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@ page contentType="text/html; charset=utf-8" language="java"
-         import="org.ecocean.*, java.util.Properties, java.util.Vector" %>
-<%@ taglib uri="http://www.sunwesttek.com/di" prefix="di" %>
+         import="org.ecocean.servlet.ServletUtilities,org.ecocean.*, java.util.Properties, java.util.Collection, java.util.Vector,java.util.ArrayList, org.datanucleus.api.rest.orgjson.JSONArray, org.json.JSONObject, org.datanucleus.api.rest.RESTUtils, org.datanucleus.api.jdo.JDOPersistenceManager" %>
 
 
-<html>
-<head>
+
   <%
+
+  String context="context0";
+  context=ServletUtilities.getContext(request);
 
     //let's load out properties
     Properties props = new Properties();
-    String langCode = "en";
-    if (session.getAttribute("langCode") != null) {
-      langCode = (String) session.getAttribute("langCode");
-    }
-    props.load(getClass().getResourceAsStream("/bundles/" + langCode + "/individualSearchResults.properties"));
+    //String langCode = "en";
+    String langCode=ServletUtilities.getLanguageCode(request);
+
+    //props.load(getClass().getResourceAsStream("/bundles/" + langCode + "/individualSearchResults.properties"));
+    props = ShepherdProperties.getProperties("individualSearchResults.properties", langCode,context);
 
 
     int startNum = 1;
@@ -59,23 +39,24 @@
     int day1 = 1, day2 = 31, month1 = 1, month2 = 12, year1 = 0, year2 = 3000;
     try {
       month1 = (new Integer(request.getParameter("month1"))).intValue();
-    } catch (NumberFormatException nfe) {
+    } catch (Exception nfe) {
     }
     try {
       month2 = (new Integer(request.getParameter("month2"))).intValue();
-    } catch (NumberFormatException nfe) {
+    } catch (Exception nfe) {
     }
     try {
       year1 = (new Integer(request.getParameter("year1"))).intValue();
-    } catch (NumberFormatException nfe) {
+    } catch (Exception nfe) {
     }
     try {
       year2 = (new Integer(request.getParameter("year2"))).intValue();
-    } catch (NumberFormatException nfe) {
+    } catch (Exception nfe) {
     }
 
 
-    Shepherd myShepherd = new Shepherd();
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("individualSearchResults.jsp");
 
 
 
@@ -84,7 +65,7 @@
 
     Vector<MarkedIndividual> rIndividuals = new Vector<MarkedIndividual>();
     myShepherd.beginDBTransaction();
-    String order = "";
+    String order ="";
 
     MarkedIndividualQueryResult result = IndividualQueryProcessor.processQuery(myShepherd, request, order);
     rIndividuals = result.getResult();
@@ -94,24 +75,11 @@
       listNum = rIndividuals.size();
     }
   %>
-  <title><%=CommonConfiguration.getHTMLTitle() %>
-  </title>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-  <meta name="Description"
-        content="<%=CommonConfiguration.getHTMLDescription() %>"/>
-  <meta name="Keywords"
-        content="<%=CommonConfiguration.getHTMLKeywords() %>"/>
-  <meta name="Author" content="<%=CommonConfiguration.getHTMLAuthor() %>"/>
-  <link href="<%=CommonConfiguration.getCSSURLLocation(request) %>"
-        rel="stylesheet" type="text/css"/>
-  <link rel="shortcut icon"
-        href="<%=CommonConfiguration.getHTMLShortcutIcon() %>"/>
 
-</head>
 <style type="text/css">
   #tabmenu {
     color: #000;
-    border-bottom: 2px solid black;
+    border-bottom: 1px solid #CDCDCD;
     margin: 12px 0px 0px 0px;
     padding: 0px;
     z-index: 1;
@@ -125,10 +93,10 @@
   }
 
   #tabmenu a, a.active {
-    color: #DEDECF;
-    background: #000;
-    font: bold 1em "Trebuchet MS", Arial, sans-serif;
-    border: 2px solid black;
+    color: #000;
+    background: #E6EEEE;
+     
+    border: 1px solid #CDCDCD;
     padding: 2px 5px 0px 5px;
     margin: 0;
     text-decoration: none;
@@ -136,56 +104,74 @@
   }
 
   #tabmenu a.active {
-    background: #FFFFFF;
+    background: #8DBDD8;
     color: #000000;
-    border-bottom: 2px solid #FFFFFF;
+    border-bottom: 1px solid #8DBDD8;
   }
 
   #tabmenu a:hover {
-    color: #ffffff;
-    background: #7484ad;
+    color: #000;
+    background: #8DBDD8;
   }
 
   #tabmenu a:visited {
-    color: #E8E9BE;
+
   }
 
   #tabmenu a.active:hover {
-    background: #7484ad;
-    color: #DEDECF;
-    border-bottom: 2px solid #000000;
+    color: #000;
+    border-bottom: 1px solid #8DBDD8;
   }
-</style>
-<body>
-<div id="wrapper">
-<div id="page">
-<jsp:include page="header.jsp" flush="true">
 
-  <jsp:param name="isAdmin" value="<%=request.isUserInRole(\"admin\")%>" />
-</jsp:include>
-<div id="main">
+
+</style>
+
+
+<jsp:include page="header.jsp" flush="true"/>
+
+<script src="javascript/underscore-min.js"></script>
+<script src="javascript/backbone-min.js"></script>
+<script src="javascript/core.js"></script>
+<script src="javascript/classes/Base.js"></script>
+
+<link rel="stylesheet" href="javascript/tablesorter/themes/blue/style.css" type="text/css" media="print, projection, screen" />
+
+<link rel="stylesheet" href="css/pageableTable.css" />
+<script src="javascript/tsrt.js"></script>
+
+
+<div class="container maincontent">
+
+
+      <h1 class="intro">
+        <%=props.getProperty("title")%>
+      </h1>
+
+
 <ul id="tabmenu">
 
 
   <li><a class="active"><%=props.getProperty("table")%>
   </a></li>
-  <li><a href="individualThumbnailSearchResults.jsp?<%=request.getQueryString().replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>"><%=props.getProperty("matchingImages")%>
+  <%
+  String queryString="";
+  if(request.getQueryString()!=null){queryString=("?"+request.getQueryString());}
+  %>
+  <li><a href="individualThumbnailSearchResults.jsp<%=queryString.replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>"><%=props.getProperty("matchingImages")%>
   </a></li>
-  <li><a href="individualSearchResultsAnalysis.jsp?<%=request.getQueryString().replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>"><%=props.getProperty("analysis")%>
+   <li><a href="individualMappedSearchResults.jsp<%=queryString.replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>"><%=props.getProperty("mappedResults")%>
   </a></li>
-    <li><a href="individualSearchResultsExport.jsp?<%=request.getQueryString().replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>"><%=props.getProperty("export")%>
+  <li><a href="individualSearchResultsAnalysis.jsp<%=queryString.replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>"><%=props.getProperty("analysis")%>
+  </a></li>
+    <li><a href="individualSearchResultsExport.jsp<%=queryString.replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>"><%=props.getProperty("export")%>
   </a></li>
 
 </ul>
+
 <table width="810" border="0" cellspacing="0" cellpadding="0">
   <tr>
     <td>
-      <br/>
 
-      <h1 class="intro"><span class="para"><img src="images/tag_big.gif" width="35"
-                                                align="absmiddle"/>
-        <%=props.getProperty("title")%>
-      </h1>
 
       <p><%=props.getProperty("instructions")%>
       </p>
@@ -194,154 +180,482 @@
 </table>
 
 
-<table width="810" id="results">
-  <tr class="lineitem">
-    <td class="lineitem" bgcolor="#99CCFF"></td>
-    <td class="lineitem" align="left" valign="top" bgcolor="#99CCFF">
-      <strong><%=props.getProperty("markedIndividual")%>
-      </strong></td>
-    <td class="lineitem" align="left" valign="top" bgcolor="#99CCFF">
-      <strong><%=props.getProperty("numEncounters")%>
-      </strong></td>
-    <td class="lineitem" align="left" valign="top" bgcolor="#99CCFF">
-      <strong><%=props.getProperty("maxYearsBetweenResights")%>
-      </strong></td>
-    <td class="lineitem" align="left" valign="top" bgcolor="#99CCFF">
-      <strong><%=props.getProperty("sex")%>
-      </strong></td>
-    <td class="lineitem" align="left" valign="top" bgcolor="#99CCFF">
-      <strong><%=props.getProperty("numLocationsSighted")%>
-      </strong></td>
-
-  </tr>
-
   <%
 
     //set up the statistics counters
+
+
+    Vector histories = new Vector();
+    int rIndividualsSize=rIndividuals.size();
+
     int count = 0;
     int numNewlyMarked = 0;
 
-    Vector histories = new Vector();
-    for (int f = 0; f < rIndividuals.size(); f++) {
-      MarkedIndividual indie = (MarkedIndividual) rIndividuals.get(f);
-      count++;
-
-      //check if this individual was newly marked in this period
-      Encounter[] dateSortedEncs = indie.getDateSortedEncounters(true);
-      int sortedLength = dateSortedEncs.length - 1;
-      Encounter temp = dateSortedEncs[sortedLength];
 
 
-      if ((temp.getYear() == year1) && (temp.getYear() < year2) && (temp.getMonth() >= month1)) {
-        numNewlyMarked++;
-      } else if ((temp.getYear() > year1) && (temp.getYear() == year2) && (temp.getMonth() <= month2)) {
-        numNewlyMarked++;
-      } else if ((temp.getYear() >= year1) && (temp.getYear() <= year2) && (temp.getMonth() >= month1) && (temp.getMonth() <= month2)) {
-        numNewlyMarked++;
-      }
+
+	JDOPersistenceManager jdopm = (JDOPersistenceManager)myShepherd.getPM();
+	JSONArray jsonobj = RESTUtils.getJSONArrayFromCollection((Collection)rIndividuals, jdopm.getExecutionContext());
+	String indsJson = jsonobj.toString();
+
+%>
+
+<style>
+.ptcol-maxYearsBetweenResightings {
+	width: 100px;
+}
+.ptcol-numberLocations {
+	width: 100px;
+}
+
+</style>
+<script type="text/javascript">
+
+var searchResults = <%=indsJson%>;
+
+/*
+var testColumns = {
+	//rowNum: { label: '#', val: _colRowNum },
+	thumb: { label: 'Thumb', val: _colThumb },
+	individual: { label: 'Individual', val: _colIndividual },
+	numberEncounters: { label: 'Encounters', val: _colNumberEncounters },
+	maxYearsBetweenResightings: { label: 'Max yrs between resights' },
+	sex: { label: 'Sex' },
+	numberLocations: { label: 'No. Locations sighted', val: _colNumberLocations },
+};
+
+var inds;
+*/
+
+var resultsTable;
 
 
-      if ((count >= startNum) && (count <= endNum)) {
-        Encounter tempEnc = indie.getEncounter(0);
-  %>
-  <tr class="lineitem">
-    <td class="lineitem" width="102" bgcolor="#000000"><img
-      src="<%=("/"+CommonConfiguration.getDataDirectoryName()+"/encounters/"+tempEnc.getEncounterNumber()+"/thumb.jpg")%>"></td>
-    <td class="lineitem"><a
-      href="http://<%=CommonConfiguration.getURLLocation(request)%>/individuals.jsp?number=<%=indie.getName()%>"><%=indie.getName()%>
-    </a>
-      <%
-        if ((indie.getAlternateID() != null) && (!indie.getAlternateID().equals("None"))) {
-      %> <br /><font size="-1"><%=props.getProperty("alternateID")%>: <%=indie.getAlternateID()%>
-      </font> <%
-        }
-      %>
-      <br /><font size="-1"><%=props.getProperty("firstIdentified")%>: <%=temp.getMonth() %>
-        /<%=temp.getYear() %>
-      </font>
-      <%
-      if(CommonConfiguration.showProperty("showTaxonomy")){
-      	if(indie.getGenusSpecies()!=null){
-      %>
-      	<br /><em><font size="-1"><%=indie.getGenusSpecies()%></font></em>
-      <%
-      	}
-      }
-      %>
+$(document).keydown(function(k) {
+	if ((k.which == 38) || (k.which == 40) || (k.which == 33) || (k.which == 34)) k.preventDefault();
+	if (k.which == 38) return tableDn();
+	if (k.which == 40) return tableUp();
+	if (k.which == 33) return nudge(-howMany);
+	if (k.which == 34) return nudge(howMany);
+});
 
-    </td>
-    <td class="lineitem"><%=indie.totalEncounters()%>
-    </td>
+var colDefn = [
+/*
+	{
+		key: 'rowNum',
+		label: '#',
+		value: _colRowNum,
+	},
+*/
+	{
+		key: 'thumb',
+		label: '<%=props.getProperty("thumbnail") %>',
+		value: _colThumb,
+		nosort: true,
+	},
+	{
+		key: 'individual',
+		label: '<%=props.getProperty("markedIndividual")%>',
+		value: _colIndividual,
+		sortValue: function(o) { return o.individualID.toLowerCase(); },
+		//sortFunction: function(a,b) {},
+	},
 
-    <td class="lineitem"><%=indie.getMaxNumYearsBetweenSightings()%>
-    </td>
+	{
+		key: 'numberEncounters',
+		label: '<%=props.getProperty("numEncounters")%>',
+		value: _colNumberEncounters,
+		sortFunction: function(a,b) { return parseFloat(a) - parseFloat(b); }
+	},
+	{
+		key: 'maxYearsBetweenResightings',
+		label: '<%=props.getProperty("maxYearsBetweenResights")%>',
+		sortFunction: function(a,b) { return parseFloat(a) - parseFloat(b); }
+	},
+	{
+		key: 'sex',
+		label: '<%=props.getProperty("sex")%>',//'Sex',
+	},
+	{
+		key: 'numberLocations',
+		label: '<%=props.getProperty("numLocationsSighted")%>',
+		value: _colNumberLocations,
+		sortFunction: function(a,b) { return parseFloat(a) - parseFloat(b); }
+	}
 
-    <td class="lineitem"><%=indie.getSex()%>
-    </td>
-
-    <td class="lineitem"><%=indie.participatesInTheseLocationIDs().size()%>
-    </td>
-  </tr>
-  <%
-      } //end if to control number displayed
-      if (((request.getParameter("export") != null) || (request.getParameter("capture") != null)) && (request.getParameter("startNum") == null)) {
-        //let's generate a programMarkEntry for this shark or check for an existing one
-        //first generate a history
-        int startYear = 3000;
-        int endYear = 3000;
-        int startMonth = 3000;
-        int endMonth = 3000;
-        String history = "";
-        if (year1 > year2) {
-          startYear = year2;
-          endYear = year1;
-          startMonth = month2;
-          endMonth = year1;
-        } else {
-          startYear = year1;
-          endYear = year2;
-          startMonth = month1;
-          endMonth = month2;
-        }
-        int NumHistoryYears = (endYear - startYear) + 1;
-
-        //there will be yearDiffs histories
-        while (startYear <= endYear) {
-          if (request.getParameter("subsampleMonths") != null) {
-            int monthIter = startMonth;
-            while (monthIter <= endMonth) {
-              if (indie.wasSightedInMonth(startYear, monthIter)) {
-                history = history + "1";
-              } else {
-                history = history + "0";
-              }
-              monthIter++;
-            } //end while
-          } else {
-            if (indie.wasSightedInYear(startYear)) {
-              history = history + "1";
-            } else {
-              history = history + "0";
-            }
-          }
-          startYear++;
-        }
-
-        boolean foundIdenticalHistory = false;
-        for (int h = 0; h < histories.size(); h++) {
-
-        }
-        if (!foundIdenticalHistory) {
-
-          if (history.indexOf("1") != -1) {
-
-          }
-        }
+];
 
 
-      } //end if export
+var howMany = 10;
+var start = 0;
+var results = [];
 
-    } //end for
+var sortCol = -1;
+var sortReverse = false;
+
+
+var counts = {
+	total: 0,
+	ided: 0,
+	unid: 0,
+	dailydup: 0,
+};
+
+var sTable = false;
+//var searchResultsObjects = [];
+
+function doTable() {
+/*
+	for (var i = 0 ; i < searchResults.length ; i++) {
+		searchResultsObjects[i] = new wildbook.Model.MarkedIndividual(searchResults[i]);
+	}
+*/
+
+	sTable = new SortTable({
+		data: searchResults,
+		perPage: howMany,
+		sliderElement: $('#results-slider'),
+		columns: colDefn,
+	});
+
+	$('#results-table').addClass('tablesorter').addClass('pageableTable');
+	var th = '<thead><tr>';
+		for (var c = 0 ; c < colDefn.length ; c++) {
+			var cls = 'ptcol-' + colDefn[c].key;
+			if (!colDefn[c].nosort) {
+				if (sortCol < 0) { //init
+					sortCol = c;
+					cls += ' headerSortUp';
+				}
+				cls += ' header" onClick="return headerClick(event, ' + c + ');';
+			}
+			th += '<th class="' + cls + '">' + colDefn[c].label + '</th>';
+		}
+	$('#results-table').append(th + '</tr></thead>');
+	for (var i = 0 ; i < howMany ; i++) {
+		var r = '<tr onClick="return rowClick(this);" class="clickable pageableTable-visible">';
+		for (var c = 0 ; c < colDefn.length ; c++) {
+			r += '<td class="ptcol-' + colDefn[c].key + '"></td>';
+		}
+		r += '</tr>';
+		$('#results-table').append(r);
+	}
+
+	sTable.initSort();
+	sTable.initValues();
+
+
+	newSlice(sortCol);
+
+	$('#progress').hide();
+	sTable.sliderInit();
+	show();
+	computeCounts();
+	displayCounts();
+
+	$('#results-table').on('mousewheel', function(ev) {  //firefox? DOMMouseScroll
+		if (!sTable.opts.sliderElement) return;
+		ev.preventDefault();
+		var delta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
+		if (delta != 0) nudge(-delta);
+	});
+
+}
+
+function rowClick(el) {
+	console.log(el);
+	var w = window.open('individuals.jsp?number=' + el.getAttribute('data-id'), '_blank');
+	w.focus();
+	return false;
+}
+
+function headerClick(ev, c) {
+	start = 0;
+	ev.preventDefault();
+	console.log(c);
+	if (sortCol == c) {
+		sortReverse = !sortReverse;
+	} else {
+		sortReverse = false;
+	}
+	sortCol = c;
+
+	$('#results-table th.headerSortDown').removeClass('headerSortDown');
+	$('#results-table th.headerSortUp').removeClass('headerSortUp');
+	if (sortReverse) {
+		$('#results-table th.ptcol-' + colDefn[c].key).addClass('headerSortUp');
+	} else {
+		$('#results-table th.ptcol-' + colDefn[c].key).addClass('headerSortDown');
+	}
+console.log('sortCol=%d sortReverse=%o', sortCol, sortReverse);
+	newSlice(sortCol, sortReverse);
+	show();
+}
+
+
+function xxxshow() {
+	$('#results-table td').html('');
+	for (var i = 0 ; i < results.length ; i++) {
+		//$('#results-table tbody tr')[i].title = searchResults[results[i]].individualID;
+		$('#results-table tbody tr')[i].setAttribute('data-id', searchResults[results[i]].individualID);
+		for (var c = 0 ; c < colDefn.length ; c++) {
+			$('#results-table tbody tr')[i].children[c].innerHTML = sTable.values[results[i]][c];
+		}
+	}
+
+	if (results.length < howMany) {
+		$('#results-slider').hide();
+		for (var i = 0 ; i < (howMany - results.length) ; i++) {
+			$('#results-table tbody tr')[i + results.length].style.display = 'none';
+		}
+	} else {
+		$('#results-slider').show();
+	}
+
+	sTable.sliderSet(100 - (start / (searchResults.length - howMany)) * 100);
+}
+
+
+
+function show() {
+	$('#results-table td').html('');
+	$('#results-table tbody tr').show();
+	for (var i = 0 ; i < results.length ; i++) {
+		//$('#results-table tbody tr')[i].title = 'Encounter ' + searchResults[results[i]].id;
+		$('#results-table tbody tr')[i].setAttribute('data-id', searchResults[results[i]].individualID);
+		for (var c = 0 ; c < colDefn.length ; c++) {
+			$('#results-table tbody tr')[i].children[c].innerHTML = '<div>' + sTable.values[results[i]][c] + '</div>';
+		}
+	}
+	if (results.length < howMany) {
+		$('#results-slider').hide();
+		for (var i = 0 ; i < (howMany - results.length) ; i++) {
+			$('#results-table tbody tr')[i + results.length].style.display = 'none';
+		}
+	} else {
+		$('#results-slider').show();
+	}
+
+	//if (sTable.opts.sliderElement) sTable.opts.sliderElement.slider('option', 'value', 100 - (start / (searchResults.length - howMany)) * 100);
+	sTable.sliderSet(100 - (start / (sTable.matchesFilter.length - howMany)) * 100);
+	displayPagePosition();
+}
+
+
+function computeCounts() {
+	counts.total = sTable.matchesFilter.length;
+	return;  //none of the below applies here! (cruft from encounters for prosperity)
+	counts.unid = 0;
+	counts.ided = 0;
+	counts.dailydup = 0;
+	var uniq = {};
+
+	for (var i = 0 ; i < counts.total ; i++) {
+		console.log('>>>>> what up? %o', searchResults[sTable.matchesFilter[i]]);
+		var iid = searchResults[sTable.matchesFilter[i]].individualID;
+		if (iid == 'Unassigned') {
+			counts.unid++;
+		} else {
+			var k = iid + ':' + searchResults[sTable.matchesFilter[i]].get('year') + ':' + searchResults[sTable.matchesFilter[i]].get('month') + ':' + searchResults[sTable.matchesFilter[i]].get('day');
+			if (!uniq[k]) {
+				uniq[k] = true;
+				counts.ided++;
+			} else {
+				counts.dailydup++;
+			}
+		}
+	}
+/*
+	var k = Object.keys(uniq);
+	counts.ided = k.length;
+*/
+}
+
+
+function displayCounts() {
+	for (var w in counts) {
+		$('#count-' + w).html(counts[w]);
+	}
+}
+
+
+function displayPagePosition() {
+	if (sTable.matchesFilter.length < 1) {
+		$('#table-info').html('<b>no matches found</b>');
+		return;
+	}
+
+	var max = start + howMany;
+	if (sTable.matchesFilter.length < max) max = sTable.matchesFilter.length;
+	$('#table-info').html((start+1) + ' - ' + max + ' of ' + sTable.matchesFilter.length);
+}
+function newSlice(col, reverse) {
+	results = sTable.slice(col, start, start + howMany, reverse);
+}
+
+
+
+function nudge(n) {
+	start += n;
+	if ((start + howMany) > sTable.matchesFilter.length) start = sTable.matchesFilter.length - howMany;
+	if (start < 0) start = 0;
+console.log('start -> %d', start);
+	newSlice(sortCol, sortReverse);
+	show();
+}
+
+function tableDn() {
+	return nudge(-1);
+	start--;
+	if (start < 0) start = 0;
+	newSlice(sortCol, sortReverse);
+	show();
+}
+
+function tableUp() {
+	return nudge(1);
+	start++;
+	if (start > sTable.matchesFilter.length - 1) start = sTable.matchesFilter.length - 1;
+	newSlice(sortCol, sortReverse);
+	show();
+}
+
+
+
+////////
+$(document).ready( function() {
+	wildbook.init(function() { doTable(); });
+});
+
+
+var tableContents = document.createDocumentFragment();
+
+/*
+function doTable() {
+	resultsTable = new pageableTable({
+		columns: testColumns,
+		tableElement: $('#results-table'),
+		sliderElement: $('#results-slider'),
+		tablesorterOpts: {
+			headers: { 0: {sorter: false} },
+			textExtraction: _textExtraction,
+		},
+	});
+
+	resultsTable.tableInit();
+
+	inds = new wildbook.Collection.MarkedIndividuals();
+	var addedCount = 0;
+	inds.on('add', function(o) {
+		var row = resultsTable.tableCreateRow(o);
+		row.click(function() { var w = window.open('individuals.jsp?number=' + row.data('id'), '_blank'); w.focus(); });
+		row.addClass('clickable');
+		row.appendTo(tableContents);
+		addedCount++;
+var percentage = Math.floor(addedCount / searchResults.length * 100);
+if (percentage % 3 == 0) console.log(percentage);
+		if (addedCount >= searchResults.length) {
+			$('#results-table').append(tableContents);
+		}
+	});
+
+	_.each(searchResults, function(o) {
+		inds.add(new wildbook.Model.MarkedIndividual(o));
+	});
+	$('#progress').remove();
+	resultsTable.tableShow();
+
+
+}
+*/
+
+
+function _colIndividual(o) {
+	var i = '<b>' + o.individualID + '</b>';
+	var fi = o.dateFirstIdentified;
+	if (fi) i += '<br /><%=props.getProperty("firstIdentified") %> ' + fi;
+	return i;
+}
+
+
+function _colNumberEncounters(o) {
+	if (o.numberEncounters == undefined) return '';
+	return o.numberEncounters;
+}
+
+/*
+function _colYearsBetween(o) {
+	return o.get('maxYearsBetweenResightings');
+}
+*/
+
+function _colNumberLocations(o) {
+	if (o.numberLocations == undefined) return '';
+	return o.numberLocations;
+}
+
+
+function _colTaxonomy(o) {
+	if (!o.get('genus') || !o.get('specificEpithet')) return 'n/a';
+	return o.get('genus') + ' ' + o.get('specificEpithet');
+}
+
+
+function _colRowNum(o) {
+	return o._rowNum;
+}
+
+
+function _colThumb(o) {
+	var url = o.thumbnailUrl;
+	if (!url) return '';
+	return '<div style="background-image: url(' + url + ');"><img src="' + url + '" /></div>';
+}
+
+
+function _colModified(o) {
+	var m = o.get('modified');
+	if (!m) return '';
+	var d = wildbook.parseDate(m);
+	if (!wildbook.isValidDate(d)) return '';
+	return d.toLocaleDateString();
+}
+
+
+function _textExtraction(n) {
+	var s = $(n).text();
+	var skip = new RegExp('^(none|unassigned|)$', 'i');
+	if (skip.test(s)) return 'zzzzz';
+	return s;
+}
+
+function applyFilter() {
+	var t = $('#filter-text').val();
+console.log(t);
+	sTable.filter(t);
+	start = 0;
+	newSlice(1);
+	show();
+	computeCounts();
+	displayCounts();
+}
+
+</script>
+
+<p class="table-filter-text">
+<input placeholder="filter by text" id="filter-text" onChange="return applyFilter()" />
+<input type="button" value="filter" />
+<input type="button" value="clear" onClick="$('#filter-text').val(''); applyFilter(); return true;" />
+<span style="margin-left: 40px; color: #888; font-size: 0.8em;" id="table-info"></span>
+</p>
+
+<div class="pageableTable-wrapper">
+	<div id="progress">loading...</div>
+	<table id="results-table"></table>
+	<div id="results-slider"></div>
+</div>
+
+
+<%
     boolean includeZeroYears = true;
 
     boolean subsampleMonths = false;
@@ -363,50 +677,13 @@
 
 
 %>
-<table width="810px">
-  <tr>
-    <%
-      if ((startNum - 10) > 1) {%>
-    <td align="left">
-      <p>
-        <a
-          href="individualSearchResults.jsp?<%=request.getQueryString().replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>&startNum=<%=(startNum-20)%>&endNum=<%=(startNum-11)%>&sort=<%=request.getParameter("sort")%>"><img
-          src="images/Black_Arrow_left.png" width="28" height="28" border="0" align="absmiddle"
-          title="<%=props.getProperty("seePreviousResults")%>"/></a> <a
-        href="individualSearchResults.jsp?<%=request.getQueryString().replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>&startNum=<%=(startNum-20)%>&endNum=<%=(startNum-11)%>&sort=<%=request.getParameter("sort")%>"><%=(startNum - 20)%>
-        - <%=(startNum - 11)%>
-      </a>
-      </p>
-    </td>
-    <%
-      }
-
-      if (startNum < numResults) {
-    %>
-    <td align="right">
-      <p>
-        <a
-          href="individualSearchResults.jsp?<%=request.getQueryString().replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>&startNum=<%=startNum%>&endNum=<%=endNum%>&sort=<%=request.getParameter("sort")%>"><%=startNum%>
-          - <%=endNum%>
-        </a> <a
-        href="individualSearchResults.jsp?<%=request.getQueryString().replaceAll("startNum","uselessNum").replaceAll("endNum","uselessNum") %>&startNum=<%=startNum%>&endNum=<%=endNum%>&sort=<%=request.getParameter("sort")%>"><img
-        src="images/Black_Arrow_right.png" width="28" height="28" border="0" align="absmiddle"
-        title="<%=props.getProperty("seeNextResults")%>"/></a>
-      </p>
-    </td>
-    <%
-      }
-    %>
-  </tr>
-</table>
 
 <p>
 <table width="810" border="0" cellspacing="0" cellpadding="0">
   <tr>
     <td align="left">
       <p><strong><%=props.getProperty("matchingMarkedIndividuals")%>
-      </strong>: <%=count%><br/>
-        <%=props.getProperty("numFirstSighted")%>: <%=numNewlyMarked %>
+      </strong>: <span id="count-total"></span>
       </p>
       <%myShepherd.beginDBTransaction();%>
       <p><strong><%=props.getProperty("totalMarkedIndividuals")%>
@@ -449,14 +726,5 @@
 </p>
 
 
-
-<p></p>
+</div>
 <jsp:include page="footer.jsp" flush="true"/>
-</div>
-</div>
-<!-- end page --></div>
-<!--end wrapper -->
-</body>
-</html>
-
-

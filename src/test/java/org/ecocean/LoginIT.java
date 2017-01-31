@@ -24,10 +24,15 @@ import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlLink;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
+
 import net.sourceforge.jwebunit.htmlunit.HtmlUnitTestingEngineImpl;
-import net.sourceforge.jwebunit.junit.WebTestCase;
+//import net.sourceforge.jwebunit.junit.WebTestCase;
+import static net.sourceforge.jwebunit.junit.JWebUnit.*;
 
 import java.io.IOException;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Created by IntelliJ IDEA.
@@ -36,35 +41,46 @@ import java.io.IOException;
  * Time: 2:18 PM
  * To change this template use File | Settings | File Templates.
  */
-public class LoginIT extends WebTestCase {
+public class LoginIT {
 
-  public void setUp() throws Exception {
-    super.setUp();
-    setBaseUrl("http://localhost:9090/shepherd");
+  @Before
+  public void prepare() throws Exception {
+    //super.setUp();
+    setBaseUrl("http://localhost:9090/wildbook");
   }
+  
+  @Test
   public void testLogin() {
+    setScriptingEnabled(false);
     beginAt("/index.jsp");
-    clickLinkWithExactText("Log in");
-    setTextField("j_username", "admin");
-    setTextField("j_password", "password");
+    clickLinkWithExactText("Login");
+    setTextField("username", "tomcat");
+    setTextField("password", "tomcat123");
     submit();
-    assertTextPresent("Login success!");
-    clickLinkWithExactText("Home");
-    assertLinkPresentWithExactText("Log out");
-    clickLinkWithExactText("Log out");
-    assertTextPresent("You are now safely logged out");
+    assertTextPresent("User Agreement");
+    submit("acceptUserAgreement");
+    assertLinkPresentWithExactText("Logout");
+    clickLinkWithExactText("Logout");
+    assertTextPresent("Logout");
   }
 
+  @Test
   public void testUnsuccessfulLogin() {
+    setScriptingEnabled(false);
     beginAt("/index.jsp");
-    clickLinkWithExactText("Log in");
-    setTextField("j_username", "foo");
-    setTextField("j_password", "bar");
+    clickLinkWithExactText("Login");
+    setTextField("username", "foo");
+    setTextField("password", "bar");
     submit();
 
-    assertTextPresent("You could not be logged in");
+    assertTextPresent("Username");
     gotoPage("/appadmin/admin.jsp");
-    assertTextPresent("You have requested a higher level");
+    assertTextPresent("Username");
+  }
+  
+  @After
+  public void close() {
+    closeBrowser();
   }
 
 }

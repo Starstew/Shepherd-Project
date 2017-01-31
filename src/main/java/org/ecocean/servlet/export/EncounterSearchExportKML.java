@@ -1,14 +1,18 @@
 package org.ecocean.servlet.export;
 import javax.servlet.*;
 import javax.servlet.http.*;
+
 import java.io.*;
 import java.util.*;
+
 import org.ecocean.*;
 import org.ecocean.genetics.*;
 import org.ecocean.servlet.ServletUtilities;
 
 import javax.jdo.*;
+
 import java.lang.StringBuffer;
+
 import org.dom4j.Document;
 import org.dom4j.DocumentHelper; 
 import org.dom4j.Element;
@@ -33,19 +37,23 @@ public class EncounterSearchExportKML extends HttpServlet{
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
 
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    
     //setup data dir
     String rootWebappPath = getServletContext().getRealPath("/");
     File webappsDir = new File(rootWebappPath).getParentFile();
-    File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName());
-    //if(!shepherdDataDir.exists()){shepherdDataDir.mkdir();}
+    File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName(context));
+    if(!shepherdDataDir.exists()){shepherdDataDir.mkdirs();}
     File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
-    //if(!encountersDir.exists()){encountersDir.mkdir();}
+    if(!encountersDir.exists()){encountersDir.mkdirs();}
     
     //determine if placemarks should be decorated
     boolean bareBonesPlacemarks=false;
     if(request.getParameter("barebones")!=null){bareBonesPlacemarks=true;}
     
-    Shepherd myShepherd = new Shepherd();
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("EncounterSearchExportKML.class");
     Vector rEncounters = new Vector();
     
     //set up the files
@@ -78,6 +86,18 @@ public class EncounterSearchExportKML extends HttpServlet{
         EncounterQueryResult queryResult = EncounterQueryProcessor.processQuery(myShepherd, request, "year descending, month descending, day descending");
         rEncounters = queryResult.getResult();
       }
+
+			Vector blocked = Encounter.blocked(rEncounters, request);
+			if (blocked.size() > 0) {
+				response.setContentType("text/html");
+				PrintWriter out = response.getWriter();
+				out.println(ServletUtilities.getHeader(request));  
+				out.println("<html><body><p><strong>Access denied.</strong></p>");
+				out.println(ServletUtilities.getFooter(context));
+				out.close();
+				return;
+			}
+      
         int numMatchingEncounters=rEncounters.size();
       
 
@@ -93,10 +113,10 @@ public class EncounterSearchExportKML extends HttpServlet{
             String nameText = "";
 
             //add the name
-            if (enc.isAssignedToMarkedIndividual().equals("Unassigned")) {
+            if (enc.getIndividualID()==null) {
               nameText = "Encounter " + enc.getEncounterNumber();
             } else {
-              nameText = enc.isAssignedToMarkedIndividual() + ": Encounter " + enc.getEncounterNumber();
+              nameText = enc.getIndividualID() + ": Encounter " + enc.getEncounterNumber();
             }
             name.setText(nameText);
 
@@ -110,8 +130,9 @@ public class EncounterSearchExportKML extends HttpServlet{
 
               String descHTML = "<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?noscript=true&number=" + enc.getEncounterNumber() + "\">Direct Link</a></p>";
               descHTML += "<p> <strong>Date:</strong> " + enc.getDate() + "</p>";
-              descHTML += "<p> <strong>Location:</strong><br>" + enc.getLocation() + "</p>";
-            
+              if(enc.getLocation()!=null){
+                descHTML += "<p> <strong>Location:</strong><br>" + enc.getLocation() + "</p>";
+              }
               //trying to find problematic sizes...
               try{
                 if (enc.getSizeAsDouble() != null) {
@@ -120,8 +141,9 @@ public class EncounterSearchExportKML extends HttpServlet{
               }
               catch(Exception npe){npe.printStackTrace();System.out.println("NPE on size for encounter: "+enc.getCatalogNumber());}
             
-            
-              descHTML += "<p> <strong>Sex:</strong> " + enc.getSex() + "</p>";
+              if(enc.getSex()!=null){
+                descHTML += "<p> <strong>Sex:</strong> " + enc.getSex() + "</p>";
+              }
               if ((enc.getComments()!=null)&&(!enc.getComments().equals(""))) {
                 descHTML += "<p> <strong>Comments:</strong> " + enc.getComments() + "</p>";
               }
@@ -130,7 +152,7 @@ public class EncounterSearchExportKML extends HttpServlet{
               List<SinglePhotoVideo> imgs = enc.getImages();
               int imgsNum = imgs.size();
               for (int imgNum = 0; imgNum < imgsNum; imgNum++) {
-                descHTML += ("<br />" + "<a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?noscript=true&number=" + enc.getEncounterNumber() + "\"><img src=\"http://" + request.getServerName() +"/"+CommonConfiguration.getDataDirectoryName() + "/encounters/" + enc.getEncounterNumber() + "/" + imgs.get(imgNum).getDataCollectionEventID() + ".jpg\" /></a>");
+                descHTML += ("<br />" + "<a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?noscript=true&number=" + enc.getEncounterNumber() + "\"><img src=\"http://" + request.getServerName() +"/"+CommonConfiguration.getDataDirectoryName(context) + "/encounters/" + enc.getEncounterNumber() + "/" + imgs.get(imgNum).getDataCollectionEventID() + ".jpg\" /></a>");
               }
 
               description.addCDATA(descHTML);
@@ -222,7 +244,7 @@ public class EncounterSearchExportKML extends HttpServlet{
         out.println(ServletUtilities.getHeader(request));
         out.println("<html><body><p><strong>Error encountered</strong> with file writing. Check the relevant log.</p>");
         out.println("<p>Please let the webmaster know you encountered an error at: EncounterSearchExportKML servlet</p></body></html>");
-        out.println(ServletUtilities.getFooter());
+        out.println(ServletUtilities.getFooter(context));
       }
       
 

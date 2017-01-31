@@ -1,5 +1,5 @@
 <%@ page contentType="text/html; charset=utf-8" language="java"
-         import="org.ecocean.Adoption,org.ecocean.CommonConfiguration,org.ecocean.Shepherd,java.util.ArrayList" %>
+         import="org.ecocean.servlet.ServletUtilities,org.ecocean.Adoption,org.ecocean.CommonConfiguration,org.ecocean.Shepherd,java.util.ArrayList,java.util.List" %>
 
 <%--
   ~ The Shepherd Project - A Mark-Recapture Framework
@@ -21,7 +21,10 @@
   --%>
 
 <%
-  Shepherd adoptShepherd = new Shepherd();
+String context="context0";
+context=ServletUtilities.getContext(request);
+  Shepherd adoptShepherd = new Shepherd(context);
+  adoptShepherd.setAction("encounterAdoptionEmbed.jsp");
   String num = request.getParameter("encounterNumber");
 
   try {
@@ -83,15 +86,17 @@ div.scroll {
 
 -->
 </style>
+<hr width="100%"/>
+  <h2>Adopters</strong></h2>
 
-<h3 style="width: 250px">Adopters</h3>
 
 <%
-  ArrayList adoptions = adoptShepherd.getAllAdoptionsForEncounter(num);
-  int numAdoptions = adoptions.size();
-
-  for (int ia = 0; ia < numAdoptions; ia++) {
-    Adoption ad = (Adoption) adoptions.get(ia);
+	adoptShepherd.beginDBTransaction();
+  	List<Adoption> adoptions = adoptShepherd.getAllAdoptionsForEncounter(num);
+  	int numAdoptions = adoptions.size();
+	if(numAdoptions>0){
+  		for (int ia = 0; ia < numAdoptions; ia++) {
+    		Adoption ad = adoptions.get(ia);
 %>
 <table class="adopter" width="250px">
   <%
@@ -99,7 +104,7 @@ div.scroll {
   %>
   <tr>
     <td class="image"><img
-      src="/<%=CommonConfiguration.getDataDirectoryName() %>/adoptions/<%=ad.getID()%>/thumb.jpg" width="250px"></td>
+      src="/<%=CommonConfiguration.getDataDirectoryName(context) %>/adoptions/<%=ad.getID()%>/thumb.jpg" width="250px"></td>
   </tr>
   <%
     }
@@ -131,7 +136,7 @@ div.scroll {
   <%
     }
 
-    if (request.isUserInRole("admin")) {
+    if (request.getUserPrincipal()!=null) {
   %>
   <tr>
     <td>&nbsp;</td>
@@ -153,7 +158,7 @@ div.scroll {
   </tr>
   <tr>
     <td align="left"><a
-      href="http://<%=CommonConfiguration.getURLLocation(request)%>/adoptions/adoption.jsp?number=<%=ad.getID()%>#create">[edit
+      href="//<%=CommonConfiguration.getURLLocation(request)%>/adoptions/adoption.jsp?number=<%=ad.getID()%>#create">[edit
       this adoption]</a></td>
   </tr>
   <tr>
@@ -166,12 +171,20 @@ div.scroll {
 <p>&nbsp;</p>
 <%
   }
+  }
+  else {
+	%>
+	<p>No adoptions defined.</p>  
+<%	  
+  }
+
+
 
   //add adoption
-  if (request.isUserInRole("admin")) {
+  if (request.getUserPrincipal()!=null) {
 %>
 <p><a
-  href="/<%=CommonConfiguration.getDataDirectoryName() %>/adoptions/adoption.jsp?encounter=<%=num%>#create">[+]
+  href="../adoptions/adoption.jsp?encounter=<%=num%>#create">[+]
   Add adoption</a></p>
 <%
   }
@@ -179,7 +192,9 @@ div.scroll {
 
 
 <%
-  } catch (Exception e) {
+  } 
+  catch (Exception e) {
+	e.printStackTrace();  
   }
   adoptShepherd.rollbackDBTransaction();
   adoptShepherd.closeDBTransaction();

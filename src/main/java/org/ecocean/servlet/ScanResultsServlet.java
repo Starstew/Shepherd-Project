@@ -35,6 +35,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+
 import java.io.*;
 import java.util.Arrays;
 import java.util.Vector;
@@ -68,6 +69,8 @@ public class ScanResultsServlet extends HttpServlet {
   }
 
   public boolean writeXML(HttpServletRequest request, Vector results, String num, String newEncDate, String newEncShark, String newEncSize) {
+    String context="context0";
+    context=ServletUtilities.getContext(request);
     try {
       System.out.println("Prepping to write XML file for encounter " + num);
 
@@ -139,10 +142,10 @@ public class ScanResultsServlet extends HttpServlet {
       //setup data dir
       String rootWebappPath = getServletContext().getRealPath("/");
       File webappsDir = new File(rootWebappPath).getParentFile();
-      File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName());
-      //if(!shepherdDataDir.exists()){shepherdDataDir.mkdir();}
-      File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
-      //if(!encountersDir.exists()){encountersDir.mkdir();}
+      File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName(context));
+      //if(!shepherdDataDir.exists()){shepherdDataDir.mkdirs();}
+      //File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
+      //if(!encountersDir.exists()){encountersDir.mkdirs();}
 
       //in case this is a right-side scan, change file name to save to
       String fileAddition = "";
@@ -150,7 +153,8 @@ public class ScanResultsServlet extends HttpServlet {
         fileAddition = "Right";
       }
       //File file=new File((new File(".")).getCanonicalPath()+File.separator+"webapps"+File.separator+"ROOT"+File.separator+"encounters"+File.separator+num+File.separator+"lastFull"+fileAddition+"Scan.xml");
-      File file = new File(encountersDir.getAbsoluteFile()+"/"+ num + "/lastFull" + fileAddition + "Scan.xml");
+      //File file = new File(encountersDir.getAbsoluteFile()+"/"+ num + "/lastFull" + fileAddition + "Scan.xml");
+      File file = new File(Encounter.dir(shepherdDataDir, num) + "/lastFull" + fileAddition + "Scan.xml");
 
 
       FileWriter mywriter = new FileWriter(file);
@@ -170,8 +174,10 @@ public class ScanResultsServlet extends HttpServlet {
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
+    String context="context0";
+    context=ServletUtilities.getContext(request);
     //set up a shepherd for DB transactions
-    Shepherd myShepherd = new Shepherd();
+    Shepherd myShepherd = new Shepherd(context);
 
     //System.out.println("scanResultsServlet: I am starting up.");
     response.setContentType("application/octet-stream");
@@ -186,7 +192,9 @@ public class ScanResultsServlet extends HttpServlet {
       num = request.getParameter("number");
       Encounter newEnc = myShepherd.getEncounter(num);
       newEncDate = newEnc.getDate();
-      newEncShark = newEnc.isAssignedToMarkedIndividual();
+      if(newEnc.getIndividualID()!=null){
+        newEncShark = newEnc.getIndividualID();
+      }
       newEncSize = newEnc.getSize() + " meters";
 
     } catch (Exception jdoe) {
@@ -194,9 +202,9 @@ public class ScanResultsServlet extends HttpServlet {
       System.out.println("!!!!DB access problem in scanResultsServlets!!!!");
     }
     myShepherd.rollbackDBTransaction();
-
+    ObjectInputStream inputFromApplet = null;
     try {
-      ObjectInputStream inputFromApplet = null;
+      
       PrintWriter out = null;
       BufferedReader inTest = null;
 
@@ -227,12 +235,13 @@ public class ScanResultsServlet extends HttpServlet {
       out = response.getWriter();
       out.println("success");
       out.close();
-      System.out.println("scanResultsServlet: Transmitted a result of 'success' back to the applet.");
+      //System.out.println("scanResultsServlet: Transmitted a result of 'success' back to the applet.");
 
 
     } catch (Exception e) {
       System.out.println("scanResultsServlet registered the following error...");
       e.printStackTrace();
+      if(inputFromApplet!=null){inputFromApplet.close();}
 
     }
 

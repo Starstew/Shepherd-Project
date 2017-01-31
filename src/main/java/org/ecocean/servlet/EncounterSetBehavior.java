@@ -29,8 +29,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 
 
 public class EncounterSetBehavior extends HttpServlet {
@@ -52,7 +54,10 @@ public class EncounterSetBehavior extends HttpServlet {
 
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("EncounterSetBehavior.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -89,30 +94,31 @@ public class EncounterSetBehavior extends HttpServlet {
 
       if (!locked) {
         myShepherd.commitDBTransaction();
-        out.println(ServletUtilities.getHeader(request));
+        //out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Success:</strong> Encounter behavior observation was updated from:<br><i>" + oldComment + "</i><br>to:<br><i>" + comment + "</i>");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+       // out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+        response.setStatus(HttpServletResponse.SC_OK);
+       //out.println(ServletUtilities.getFooter(context));
         String message = "Encounter #" + request.getParameter("number") + " submitted comments have been updated from \"" + oldComment + "\" to \"" + comment + "\".";
-        ServletUtilities.informInterestedParties(request, request.getParameter("number"), message);
-      } else {
-        out.println(ServletUtilities.getHeader(request));
+        ServletUtilities.informInterestedParties(request, request.getParameter("number"), message,context);
+      } 
+      else {
+        //out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Failure:</strong> Encounter behavior observation was NOT updated because another user is currently modifying this record. Please press the Back button in your browser and try to edit the comments again in a few seconds.");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        //out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        //out.println(ServletUtilities.getFooter(context));
 
       }
-    } else {
-      out.println(ServletUtilities.getHeader(request));
+    } 
+    else {
+      //out.println(ServletUtilities.getHeader(request));
       out.println("<strong>Error:</strong> I don't have enough information to complete your request.");
-      out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-      out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-      out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-      out.println(ServletUtilities.getFooter());
+      //out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+
+      //out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+      //out.println(ServletUtilities.getFooter(context));
 
     }
 

@@ -19,35 +19,50 @@
 
 package org.ecocean;
 
-import net.sourceforge.jwebunit.junit.WebTestCase;
+//import net.sourceforge.jwebunit.junit.WebTestCase;
+import static net.sourceforge.jwebunit.junit.JWebUnit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * tests for /submit.jsp
  */
-public class SubmitIT extends WebTestCase {
-  public void setUp() throws Exception {
-    super.setUp();
-    setBaseUrl("http://localhost:9090/shepherd");
+public class SubmitIT {
+  
+  @Before
+  public void prepare() throws Exception {
+    //super.setUp();
+    setBaseUrl("http://localhost:9090/wildbook");
   }
+  
+  @Test
   public void testSubmit() {
+    setScriptingEnabled(false);
     beginAt("/index.jsp");
-    clickLinkWithExactText("Participate");
+    clickLinkWithExactText("Report an encounter");
     // necessary fields
     // encounter date (day, month, year, hour, minutes)
     // sighting location
     // submitterName
     // submitterEmail
     // theFile1 - theFile4 (at least 1)
-    selectOption("day", "1");
-    selectOption("month", "1");
-    selectOption("year", "2011");
-    selectOption("hour", "12 am");
-    selectOption("minutes", ":00");
-    setTextField("location", "the world");
-    setTextField("submitterName", "mark");
-    setTextField("submitterEmail", "mark.mcbride@gmail.com");
-    setTextField("theFile1", "src/main/webapp/images/logbook.gif");
-    submit("Submit");
+    //selectOption("day", "1");
+    //selectOption("month", "1");
+    //selectOption("year", "2011");
+    //selectOption("hour", "12 am");
+    //selectOption("minutes", ":00");
+	//setTextField("datepicker", "2014-10-10 12:34");
+    //setTextField("location", "the world");
+    //setTextField("submitterName", "john");
+    //setTextField("submitterEmail", "john.doe@johnnydoe.com");
+    //setTextField("theFiles", "src/main/webapp/images/logbook.gif");
+    //clickButton("submit-button");
     assertResponseCode(200);
+  }
+  
+  @After
+  public void close() {
+    closeBrowser();
   }
 }

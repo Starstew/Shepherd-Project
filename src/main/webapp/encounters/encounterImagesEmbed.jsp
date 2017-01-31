@@ -1,5 +1,5 @@
 <%@ page contentType="text/html; charset=utf-8" language="java"
-         import="com.drew.imaging.jpeg.JpegMetadataReader, com.drew.metadata.Directory, com.drew.metadata.Metadata, com.drew.metadata.Tag, org.ecocean.*,org.ecocean.servlet.ServletUtilities,org.ecocean.Util,org.ecocean.Measurement, org.ecocean.Util.*, org.ecocean.genetics.*, org.ecocean.tag.*, java.awt.Dimension, javax.jdo.Extent, javax.jdo.Query, java.io.File, java.text.DecimalFormat, java.util.*" %>
+         import="org.ecocean.servlet.ServletUtilities, org.ecocean.*,org.ecocean.servlet.ServletUtilities,org.ecocean.Util,org.ecocean.Measurement, org.ecocean.Util.*, org.ecocean.genetics.*, org.ecocean.tag.*, java.awt.Dimension, javax.jdo.Extent, javax.jdo.Query, java.io.File, java.io.FileInputStream,java.text.DecimalFormat, java.util.*" %>
 <%@ taglib uri="http://www.sunwesttek.com/di" prefix="di" %>
 <%--
   ~ The Shepherd Project - A Mark-Recapture Framework
@@ -21,49 +21,99 @@
   --%>
 
 <%
-
+String context="context0";
+context=ServletUtilities.getContext(request);
+Shepherd imageShepherd = new Shepherd(context);
+imageShepherd.beginDBTransaction();
+Extent allKeywords = imageShepherd.getPM().getExtent(Keyword.class, true);
+Query kwImagesQuery = imageShepherd.getPM().newQuery(allKeywords);
 try {
 
 //get the encounter number
 String imageEncNum = request.getParameter("encounterNumber");
 	
 //set up the JDO pieces and Shepherd
-Shepherd imageShepherd = new Shepherd();
-Extent allKeywords = imageShepherd.getPM().getExtent(Keyword.class, true);
-Query kwImagesQuery = imageShepherd.getPM().newQuery(allKeywords);
+
+
 boolean haveRendered = false;
 
 //let's set up references to our file system components
 String rootWebappPath = getServletContext().getRealPath("/");
 File webappsDir = new File(rootWebappPath).getParentFile();
-File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName());
+File shepherdDataDir = new File(webappsDir, CommonConfiguration.getDataDirectoryName(context));
 File encountersDir=new File(shepherdDataDir.getAbsolutePath()+"/encounters");
-File thisEncounterDir = new File(encountersDir, imageEncNum);
 
 
 //handle translation
-String langCode = "en";
+//String langCode = "en";
+String langCode=ServletUtilities.getLanguageCode(request);
 
-//check what language is requested
-if (session.getAttribute("langCode") != null) {
-  langCode = (String) session.getAttribute("langCode");
-}
 
 //let's load encounters.properties
 Properties encprops = new Properties();
-encprops.load(getClass().getResourceAsStream("/bundles/" + langCode + "/encounter.properties"));
+//encprops.load(getClass().getResourceAsStream("/bundles/" + langCode + "/encounter.properties"));
+encprops=ShepherdProperties.getProperties("encounter.properties", langCode,context);
 
 
-
+String baseDir = ServletUtilities.dataDir(context, rootWebappPath);
 Encounter imageEnc=imageShepherd.getEncounter(imageEncNum);
+File thisEncounterDir = new File(imageEnc.dir(baseDir));
+String encUrlDir = "/" + CommonConfiguration.getDataDirectoryName(context) + imageEnc.dir("");
+
 
 
 %>
 
+ <script type="text/javascript">
+  
 
-<p class="para"><img align="absmiddle" src="../images/Crystal_Clear_device_camera.gif" width="37px"
-                     height="*"><strong>&nbsp;<%=encprops.getProperty("images")%>
-</strong><br/> <%
+  
+      hs.graphicsDir = '../highslide/highslide/graphics/';
+      hs.align = 'auto';
+      hs.transitions = ['expand', 'crossfade'];
+      hs.outlineType = 'rounded-white';
+      hs.fadeInOut = true;
+      hs.anchor = 'top';
+
+
+    //block right-click user copying if no permissions available
+    <%
+    if(request.getUserPrincipal()!=null){
+    %>
+    hs.blockRightClick = false;
+    <%
+    }
+    else{
+    %>
+    hs.blockRightClick = true;
+	<%
+    }
+	%>
+    // Add the controlbar
+    hs.addSlideshow({
+      //slideshowGroup: 'group1',
+      interval: 5000,
+      repeat: false,
+      useControls: true,
+      fixedControls: 'fit',
+      overlayOptions: {
+        opacity: 0.75,
+        position: 'bottom center',
+        hideOnMouseOut: true
+      }
+    });
+    
+  
+
+
+  </script>
+
+
+
+
+<h2><img align="absmiddle" src="../images/Crystal_Clear_device_camera.gif" width="37px"
+                     height="25px">&nbsp;<%=encprops.getProperty("images")%></h2>
+<p> <%
   if (session.getAttribute("logged") != null) {
 %> <em><%=encprops.getProperty("click2view")%>
 </em>
@@ -73,7 +123,7 @@ Encounter imageEnc=imageShepherd.getEncounter(imageEncNum);
 %>
 <table>
 <%
-ArrayList<SinglePhotoVideo> images=imageShepherd.getAllSinglePhotoVideosForEncounter(imageEnc.getCatalogNumber());
+List<SinglePhotoVideo> images=imageShepherd.getAllSinglePhotoVideosForEncounter(imageEnc.getCatalogNumber());
 int numImagesHere=images.size();
 int imageCount = 0;
   for(int myImage=0;myImage<numImagesHere;myImage++ ) {
@@ -89,20 +139,51 @@ int imageCount = 0;
 <td>
 <table>
 <tr>
-  <td class="para"><em><%=encprops.getProperty("image") %> <%=imageCount%>
-  </em></td>
+  <td class="para">
+  <br />
+  	<strong>
+  		<%=encprops.getProperty("image") %> <%=imageCount%>
+  	</strong>
+  </td>
 </tr>
 <%
   if (request.getParameter("isOwner").equals("true")) {
 %>
 <tr>
-  <td class="para"><img align="absmiddle"
-                        src="../images/Crystal_Clear_action_find.gif">
-    <strong><%=encprops.getProperty("image_commands") %>
-    </strong>:<br/> <font size="-1">
-      [<a
-      href="encounterSearch.jsp?referenceImageName=<%=(imageEncNum+"/"+(addTextFile.replaceAll(" ","%20")))%>"><%=encprops.getProperty("look4photos") %>
-    </a>] </font></td>
+  <td class="para">
+  	<img align="absmiddle" src="../images/Crystal_Clear_app_xmag.png" width="30px" height="30px" />
+    <em>
+    	<%=encprops.getProperty("image_commands") %>
+    </em>:<br/>
+<ul class="image-commands">
+
+<%
+if(CommonConfiguration.useSpotPatternRecognition(context)){
+	
+	String isDorsalFin="";
+	String genusSpecies="";
+	if((imageEnc.getGenus()!=null)&&(imageEnc.getSpecificEpithet()!=null)){genusSpecies=imageEnc.getGenus()+imageEnc.getSpecificEpithet();}
+	if((genusSpecies.equals("Physetermacrocephalus"))||(genusSpecies.equals("Megapteranovaeangliae"))){
+		isDorsalFin="&isDorsalFin=false";
+	}
+	else if(genusSpecies.equals("Tursiopstruncatus")){
+		isDorsalFin="&isDorsalFin=true";
+	}
+	
+%>
+<li>
+	<a href="encounterSpotTool.jsp?imageID=<%=images.get(myImage).getDataCollectionEventID()%><%=isDorsalFin %>"><%=encprops.getProperty("matchPattern") %></a>
+</li>
+<%
+}
+%>
+
+<li>
+	<a href="encounterSearch.jsp?referenceImageName=<%=images.get(myImage).getDataCollectionEventID() %>"><%=encprops.getProperty("look4photos") %></a>
+</li>
+
+
+</td>
 </tr>
 
 <%
@@ -115,51 +196,49 @@ int imageCount = 0;
 
 <tr>
   <td class="para">
+
+    
+    <br />
+    <em><img align="absmiddle" src="../images/keyword_icon_small.gif" /> <%=encprops.getProperty("matchingKeywords") %>
+    </em>
+
+  
+    
     <%
-      if (request.getParameter("isOwner").equals("true") && CommonConfiguration.isCatalogEditable()) {
-    %>
-    <img align="absmiddle" src="../images/cancel.gif">
-    <strong><%=encprops.getProperty("remove_keyword") %>
-    </strong>
-    <%
-    } else {
-    %>
-    <strong><%=encprops.getProperty("matchingKeywords") %>
-    </strong>
-    <%
-      }
-    %>
-    <br/>
-    <%
-      Iterator indexes = imageShepherd.getAllKeywords();
+      Iterator<Keyword> indexes = imageShepherd.getAllKeywords();
       if (totalKeywords > 0) {
         boolean haveAddedKeyword = false;
         for (int m = 0; m < totalKeywords; m++) {
-          Keyword word = (Keyword) indexes.next();
+          Keyword word = indexes.next();
           if (images.get(myImage).getKeywords().contains(word)) {
             haveAddedKeyword = true;
-
-            if (CommonConfiguration.isCatalogEditable()) {
+%>
+<p>
+<%
+            if (CommonConfiguration.isCatalogEditable(context)) {
     %>
     <a href="../SinglePhotoVideoRemoveKeyword?number=<%=imageEncNum%>&photoName=<%=images.get(myImage).getDataCollectionEventID()%>&keyword=<%=word.getReadableName()%>">
-      <%
+         <%
         }
       %>
-      "<%=word.getReadableName()%>"
-      <%
-        if (CommonConfiguration.isCatalogEditable()) {
-      %>
+<img src="../images/cancel.gif" width="16px" height="16px" align="left" />
+ <%
+  if (CommonConfiguration.isCatalogEditable(context)) {
+    %> 
     </a>
-    <%
-      }
-    %>
-    &nbsp;
+          <%
+        }
+      %>
+
+      <em>&nbsp;<%=word.getReadableName()%></em></p>
+
+
     <%
         } //end if
       } //end for
       if (!haveAddedKeyword) {%>
 
-    <%=encprops.getProperty("none_assigned")%>
+    <p><%=encprops.getProperty("none_assigned")%></p>
 
     <% }
     } //end if
@@ -172,18 +251,18 @@ int imageCount = 0;
   </td>
 </tr>
 <%
-  if (CommonConfiguration.isCatalogEditable()) {
+  if (CommonConfiguration.isCatalogEditable(context)) {
 %>
 <tr>
   <td>
 
     <table>
       <tr>
-        <td class="para"><img align="absmiddle"
-                              src="../images/keyword_icon_small.gif">
-          <strong><%=encprops.getProperty("add_keyword") %> <a
-            href="<%=CommonConfiguration.getWikiLocation()%>photo_keywords" target="_blank">
-            <img src="../images/information_icon_svg.gif" alt="Help" border="0" align="absmiddle"/></a></strong>
+        <td class="para">
+          <em><%=encprops.getProperty("add_keyword") %> 
+          	<a href="<%=CommonConfiguration.getWikiLocation(context)%>photo_keywords" target="_blank">
+            	<img src="../images/information_icon_svg.gif" alt="Help" border="0" align="absmiddle"/></a>
+            </em>
         </td>
       </tr>
       <tr>
@@ -192,12 +271,12 @@ int imageCount = 0;
             if (totalKeywords > 0) {
           %>
           <form action="../SinglePhotoVideoAddKeyword" method="post" name="keyword">
-            <select name="keyword" id="keyword">
+            <select multiple="multiple" name="keyword" id="keyword" size="5" required="required">
               <option value=" " selected>&nbsp;</option>
               <%
-                Iterator keys = imageShepherd.getAllKeywords(kwImagesQuery);
+                Iterator<Keyword> keys = imageShepherd.getAllKeywords(kwImagesQuery);
                 for (int n = 0; n < totalKeywords; n++) {
-                  Keyword word = (Keyword) keys.next();
+                  Keyword word = keys.next();
                   String indexname = word.getIndexname();
                   String readableName = word.getReadableName();
               %>
@@ -207,9 +286,10 @@ int imageCount = 0;
               %>
 
             </select>
-            <input name="number" type="hidden" value=<%=imageEncNum%>>
-            <input name="photoName" type="hidden" value="<%=images.get(myImage).getDataCollectionEventID()%>">
-            <input name="AddKW" type="submit" id="AddKW" value="<%=encprops.getProperty("add") %>">
+            <input name="number" type="hidden" value="<%=imageEncNum%>" />
+            <input name="photoName" type="hidden" value="<%=images.get(myImage).getDataCollectionEventID()%>" />
+            <br />
+            <input name="AddKW" type="submit" id="AddKW" value="<%=encprops.getProperty("add") %>" />
           </form>
           <%
           } else {
@@ -247,28 +327,31 @@ int imageCount = 0;
       }
       if (request.getParameter("isOwner").equals("true") && (!isBMP) && (!isVideo)) {
     %>
-    <a href="/<%=CommonConfiguration.getDataDirectoryName() %>/encounters/<%=imageEncNum%>/<%=addTextFile%>" class="highslide" onclick="return hs.expand(this)"
-       title="Click to enlarge">
+    <a id="<%=images.get(myImage).getDataCollectionEventID() %>" href="<%= images.get(myImage).asUrl(imageEnc, CommonConfiguration.getDataDirectoryName(context)) %>" class="highslide" onclick="return hs.expand(this)"
+       title="<%=encprops.getProperty("clickEnlarge")%>">
       <%
-      } else if (request.getParameter("isOwner").equals("true")||(request.getParameter("loggedIn").equals("true"))) {
+      } 
+      else if (request.getParameter("isOwner").equals("true")||(request.getParameter("loggedIn").equals("true"))) {
       %>
-      <a href="/<%=CommonConfiguration.getDataDirectoryName() %>/encounters/<%=addText%>" 
+      <a href="<%= images.get(myImage).asUrl(imageEnc, CommonConfiguration.getDataDirectoryName(context)) %>" id="<%=images.get(myImage).getDataCollectionEventID() %>"
         <%
         if(!isVideo){
         %>
-      class="highslide" onclick="return hs.expand(this)"
+      class="highslide" onclick="return hs.expand(this)" 
 		<%
             }
 		%>
           
-         title="Click to enlarge">
+         title="<%=encprops.getProperty("clickEnlarge")%>">
          
          
          <%
         }
 
-        String thumbLocation = "file-" + thisEncounterDir.getAbsolutePath() + "/" + images.get(myImage).getDataCollectionEventID() + ".jpg";
-        File processedImage = new File(thisEncounterDir.getAbsolutePath() + "/" + images.get(myImage).getDataCollectionEventID() + ".jpg");
+        String thumbPath = thisEncounterDir.getAbsolutePath() + "/" + images.get(myImage).getDataCollectionEventID() + ".jpg";
+        String thumbLocation = "file-" + thumbPath;
+        String srcurl = images.get(myImage).getFullFileSystemPath();
+        File processedImage = new File(thumbPath);
 
 
         int intWidth = 250;
@@ -279,11 +362,13 @@ int imageCount = 0;
 
         if(!isVideo){
         	File file2process = new File(encountersDir.getAbsolutePath()+"/"+ addText);
-        	Dimension imageDimensions = org.apache.sanselan.Sanselan.getImageSize(file2process);
-        	String width = Double.toString(imageDimensions.getWidth());
-        	String height = Double.toString(imageDimensions.getHeight());
-        	intHeight = ((new Double(height)).intValue());
-        	intWidth = ((new Double(width)).intValue());
+        	if(file2process.exists()){
+        		Dimension imageDimensions = org.apache.sanselan.Sanselan.getImageSize(file2process);
+        		String width = Double.toString(imageDimensions.getWidth());
+        		String height = Double.toString(imageDimensions.getHeight());
+        		intHeight = ((new Double(height)).intValue());
+        		intWidth = ((new Double(width)).intValue());
+        	}
         }
         
         if (intWidth > thumbnailWidth) {
@@ -311,11 +396,19 @@ int imageCount = 0;
 
 
       } else if ((!processedImage.exists()) && (!haveRendered)) {
-        haveRendered = true;
+
+				//thanks to magic of short-circuiting boolean, this will try watermark first then regular if not available
+				if (images.get(myImage).scaleToWatermark(context, thumbnailWidth, thumbnailHeight, thumbPath, "") ||
+						images.get(myImage).scaleTo(context, thumbnailWidth, thumbnailHeight, thumbPath)) {
+					//work forks off in background, so we use this placeholder for now:
+System.out.println("trying to fork/create " + thumbPath);
+      %> <img width="250" height="200" alt="in progress" src="../images/processed.gif" align="left" /> <%
+
+				} else {  //fallback to old dynamic ways:
+        	haveRendered = true;
         //System.out.println("Using DynamicImage to render thumbnail: "+imageEncNum);
         //System.gc();
-String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
-//System.out.println("srcurl="+srcurl);
+//System.out.println("srcurl="+srcurl + " --> thumbLocation=" + thumbLocation);
       %>
       <di:img width="<%=thumbnailWidth %>" height="<%=thumbnailHeight %>"
               imgParams="rendering=speed,quality=low" border="0"
@@ -331,8 +424,10 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
                  fillPaint="#000000"><%=encprops.getProperty("nocopying") %>
         </di:text>
       </di:img>
-      <img width="<%=thumbnailWidth %>" alt="photo <%=imageEnc.getLocation()%>"
-           src="/<%=CommonConfiguration.getDataDirectoryName() %>/encounters/<%=(imageEncNum+"/"+images.get(myImage).getDataCollectionEventID()+".jpg")%>" border="0" align="left" valign="left"> <%
+      <img id="<%= images.get(myImage).getDataCollectionEventID()%>" width="<%=thumbnailWidth %>" class="enc-photo" alt="photo <%=imageEnc.getLocation()%>"
+           src="<%=encUrlDir%>/<%=(images.get(myImage).getDataCollectionEventID()+".jpg")%>" border="0" align="left" valign="left"> <%
+				}
+
       if (request.getParameter("isOwner").equals("true")) {
     %>
     </a>
@@ -340,7 +435,7 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
       }
     %> <%
   } else if ((!processedImage.exists()) && (haveRendered)) {
-  %> <img width="250" height="200" alt="photo <%=imageEnc.getLocation()%>"
+  %> <img width="250" height="200" class="enc-photo" alt="photo <%=imageEnc.getLocation()%>"
           src="../images/processed.gif" border="0" align="left" valign="left">
       <%
 		if (session.getAttribute("logged")!=null) {
@@ -350,16 +445,20 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
       }
     %> <%
   } else {
-  %> <img id="img<%=images.get(myImage).getDataCollectionEventID()%> " width="<%=thumbnailWidth %>" alt="photo <%=imageEnc.getLocation()%>"
-          src="/<%=CommonConfiguration.getDataDirectoryName() %>/encounters/<%=(imageEncNum+"/"+images.get(myImage).getDataCollectionEventID()+".jpg")%>" border="0" align="left"
-          valign="left"> <%
+			String wmDiv = "";
+			String wmText = encprops.getProperty("imgWatermark");
+			if ((wmText != null) && !wmText.equals("")) wmDiv = "<div class=\"img-watermark\">" + wmText + "</div>";
+  %> <div style="position: relative"><img id="img<%=images.get(myImage).getDataCollectionEventID()%> " width="<%=thumbnailWidth %>" class="enc-photo" alt="photo <%=imageEnc.getLocation()%>"
+          src="<%=encUrlDir%>/<%=(images.get(myImage).getDataCollectionEventID()+".jpg")%>" border="0" align="left"
+          valign="left"><%=wmDiv%> <%
+
 	if (session.getAttribute("logged")!=null) {
 				%></a>
                 <div 
             <%
             if(!isVideo){
             %>
-            class="highslide-caption"
+            class="highslide-caption" 
             <%
             }
             %>
@@ -402,9 +501,18 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
                 </td>
               </tr>
               <tr>
-                <td><span class="caption"><%=encprops.getProperty("individualID") %>: <a
-                  href="../individuals.jsp?number=<%=imageEnc.getIndividualID() %>"><%=imageEnc.getIndividualID() %>
-                </a></span></td>
+                <td>
+	                <span class="caption"><%=encprops.getProperty("individualID") %>: 
+	                <%
+	                if(imageEnc.getIndividualID()!=null){
+	                %>
+	                <a href="../individuals.jsp?number=<%=imageEnc.getIndividualID() %>"><%=imageEnc.getIndividualID() %>
+	                </a>
+	                <%
+	                }
+	                %>
+	                </span>
+                </td>
               </tr>
               <tr>
                 <td><span class="caption"><%=encprops.getProperty("title") %>: <a
@@ -415,9 +523,9 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
                 <td><span class="caption">
 											<%=encprops.getProperty("matchingKeywords") %>
 											<%
-                        Iterator it = imageShepherd.getAllKeywords();
+                        Iterator<Keyword> it = imageShepherd.getAllKeywords();
                         while (it.hasNext()) {
-                          Keyword word = (Keyword) it.next();
+                          Keyword word = it.next();
 							
 
                          if (images.get(myImage).getKeywords().contains(word)) {
@@ -438,40 +546,25 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
 
 
             <%
-              if (CommonConfiguration.showEXIFData()&&!isVideo) {
+              if (CommonConfiguration.showEXIFData(context)&&!isVideo) {
+            	  FileInputStream jin=null;
+            	  try{
+            	  File exifImage = new File(Encounter.dir(shepherdDataDir, imageEnc.getCatalogNumber()) + "/" + addTextFile);
+              	jin=new FileInputStream(exifImage);
             %>
 
 
-            <p><strong>EXIF Data</strong></p>
-					<span class="caption">
-					<div class="scroll"><span class="caption">	
+            <p><strong>EXIF</strong></p>
+            <span class="caption">
+					<div class="scroll">
+						<span class="caption">	
 					<%
             if ((addTextFile.toLowerCase().endsWith("jpg")) || (addTextFile.toLowerCase().endsWith("jpeg"))) {
-              try{
-              	File exifImage = new File(thisEncounterDir.getAbsolutePath() + "/"+addTextFile);
-              	Metadata metadata = JpegMetadataReader.readMetadata(exifImage);
-              	// iterate through metadata directories
-              	Iterator directories = metadata.getDirectoryIterator();
-              	while (directories.hasNext()) {
-              	  Directory directory = (Directory) directories.next();
-              	  // iterate through tags and print to System.out
-              	  Iterator tags = directory.getTagIterator();
-              	  while (tags.hasNext()) {
-              	    Tag tag = (Tag) tags.next();
-
-          %>
-								<%=tag.toString() %><br/>
-								<%
-              	  } //end while
-             	} //end while
-           } //end try
-            catch(Exception e){
-            %>
-            <p>Cannot read metadata for this file.</p>
-            <%
-            System.out.println("Cannot read metadata for: "+addTextFile);
-            e.printStackTrace();
-            }
+            	//File exifImage = new File(Encounter.dir(shepherdDataDir, thisEnc.getCatalogNumber()) + "/" + thumbLocs.get(countMe).getFilename());
+            	%>
+            	<%=Util.getEXIFDataFromJPEGAsHTML(exifImage) %>
+            	<%
+            	
               } //end if
  
                 %>
@@ -481,6 +574,9 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
    								</span>
           </td>
           <%
+              }
+            	  catch(Exception e){e.printStackTrace();}
+            	  finally{if(jin!=null){jin.close();}}
             }
           %>
 
@@ -500,6 +596,8 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
 
 </table>
 
+
+
   <%
 						}
 				else {
@@ -508,7 +606,7 @@ String srcurl=encountersDir.getAbsolutePath()+"/"+addText;
   <td>
     <p><img src="../images/alert.gif"> <strong><%=encprops.getProperty("badfile") %>
       :</strong> <%=addTextFile%> <%
-      if (request.getParameter("isOwner").equals("true") && CommonConfiguration.isCatalogEditable()) {
+      if (request.getParameter("isOwner").equals("true") && CommonConfiguration.isCatalogEditable(context)) {
     %> <br/>
     <a href="../EncounterRemoveImage?number=<%=imageEncNum%>&filename=<%=(addTextFile.replaceAll(" ","%20"))%>&dcID=<%=images.get(myImage).getDataCollectionEventID()%>"><%=encprops.getProperty("clickremove") %>
     </a></p>
@@ -542,7 +640,7 @@ catch (Exception e) {
 
 <p class="para">
     <%
-		 			if (request.getParameter("isOwner").equals("true")&&CommonConfiguration.isCatalogEditable()) {
+		 			if (request.getParameter("isOwner").equals("true")&&CommonConfiguration.isCatalogEditable(context)) {
 		 		%>
 <table width="250" bgcolor="#99CCFF">
   <tr>
@@ -553,7 +651,7 @@ catch (Exception e) {
         <input name="number" type="hidden" value="<%=imageEncNum%>" id="shark">
         <strong><img align="absmiddle"
                      src="../images/upload_small.gif"/> <%=encprops.getProperty("addfile") %>:</strong><br/>
-        <input name="file2add" type="file" size="20">
+        <input name="file2add" accept=".jpg, .jpeg, .png, .bmp, .gif, .mov, .wmv, .avi, .mp4, .mpg" type="file" size="20">
 
         <p><input name="addtlFile" type="submit" id="addtlFile"
                   value="Upload"></p></form>
@@ -561,15 +659,44 @@ catch (Exception e) {
     </td>
   </tr>
 </table>
+<br />
+<table width="250" bgcolor="#99CCFF">
+  <tr>
+    <td align="left" valign="top" class="para">
+      <font color="#990000"><img
+        align="absmiddle" src="../images/thumbnail_image.gif"/></font>
+      <strong><%=encprops.getProperty("resetThumbnail")%>
+      </strong>&nbsp;</font></td>
+  </tr>
+  <tr>
+    <td align="left">
+      <form action="../resetThumbnail.jsp" method="get" enctype="multipart/form-data"
+            name="resetThumbnail">
+        <input name="number" type="hidden" value="<%=imageEncNum%>" id="numreset"><br/>
+        <%=encprops.getProperty("useImage")%>: <select name="imageNum">
+        <%
+          for (int rmi2 = 1; rmi2 <= numImagesHere; rmi2++) {
+        %>
+        <option value="<%=rmi2%>"><%=rmi2%>
+        </option>
+        <%
+          }
+        %>
+      </select><br/>
+        <input name="resetSubmit" type="submit" id="resetSubmit"
+               value="<%=encprops.getProperty("resetThumbnail")%>"></form>
+    </td>
+  </tr>
+</table>
 <br/>
 <table width="250" bgcolor="#99CCFF">
   <tr>
     <td class="para">
-      <form action="../EncounterRemoveImage" method="post"
-            name="encounterRemoveImage"><input name="action"
-                                               type="hidden" value="imageremover" id="action">
+      <form onsubmit="return confirm('Are you sure you want to delete this image?');"  action="../EncounterRemoveImage" method="post"
+            name="encounterRemoveImage">
+            <input name="action" type="hidden" value="imageremover" id="action" />
         <input
-          name="number" type="hidden" value=<%=imageEncNum%>> <strong><img
+          name="number" type="hidden" value="<%=imageEncNum%>" /> <strong><img
           align="absmiddle" src="../images/cancel.gif"/> <%=encprops.getProperty("removefile") %>:
         </strong> <select name="dcID">
           <%
@@ -581,152 +708,35 @@ catch (Exception e) {
           %>
         </select><br/>
 
-        <p><input name="rmFile" type="submit" id="rmFile"
-                  value="Remove"></p></form>
+        <p><input name="rmFile" type="submit" id="rmFile" value="Remove" /></p></form>
 
     </td>
   </tr>
 </table>
 
+<!-- ***** START EDITS ***** 
+
+     Ecological Software Solutions LLC Fluke Tracer.-->
+<!-- Requires jQuery. Also get the lastest version of jQuery if needed.  -->
+<!-- <script type="text/javascript" src="//code.jquery.com/jquery-2.1.3.js"></script> -->
+<script type="text/javascript" src="../tracing/js/paper.js"></script>
+<script type="text/javascript" src="../tracing/js/tracing.js"></script>
+<script type="text/javascript">
+  comEcostatsTracing.addFlukeTrace('.highslide','<%=imageEncNum%>');
+</script>
+
+<!-- ***** END EDITS *****  -->
+
 <%
   }
-%>
 
-
-<p>
-    <%
-		 	if (request.getParameter("isOwner").equals("true")&&CommonConfiguration.useSpotPatternRecognition()&&((imageEnc.getNumSpots()>0)||(imageEnc.getNumRightSpots()>0))) {
-		 	
-
-		 			
-		 			//File extractImage=new File(((new File(".")).getCanonicalPath()).replace('\\','/')+"/"+CommonConfiguration.getImageDirectory()+File.separator+imageEncNum+"/extract"+imageEncNum+".jpg");
-		 			File extractImage=new File(thisEncounterDir.getAbsolutePath()+"/extract"+imageEncNum+".jpg");
-
-		 			//File extractRightImage=new File(((new File(".")).getCanonicalPath()).replace('\\','/')+"/"+CommonConfiguration.getImageDirectory()+File.separator+imageEncNum+"/extractRight"+imageEncNum+".jpg");
-		 			File extractRightImage=new File(thisEncounterDir.getAbsolutePath()+"/extractRight"+imageEncNum+".jpg");
-
-		 			
-		 			//File uploadedFile=new File(((new File(".")).getCanonicalPath()).replace('\\','/')+"/"+CommonConfiguration.getImageDirectory()+File.separator+imageEncNum+"/"+imageEnc.getSpotImageFileName());
-		 			File uploadedFile=new File(thisEncounterDir.getAbsolutePath()+"/"+imageEnc.getSpotImageFileName());
-
-		 			
-		 			//File uploadedRightFile=new File(((new File(".")).getCanonicalPath()).replace('\\','/')+"/"+CommonConfiguration.getImageDirectory()+File.separator+imageEncNum+"/"+imageEnc.getRightSpotImageFileName());
-		 			File uploadedRightFile=new File(thisEncounterDir.getAbsolutePath()+"/"+imageEnc.getRightSpotImageFileName());
-
-		 			
-		 			String extractLocation="file-"+thisEncounterDir.getAbsolutePath()+"/extract"+imageEncNum+".jpg";
-		 			String extractRightLocation="file-"+thisEncounterDir.getAbsolutePath()+"/extractRight"+imageEncNum+".jpg";
-		 			String addText=imageEncNum+"/"+imageEnc.getSpotImageFileName();
-		 			String addTextRight=imageEncNum+"/"+imageEnc.getRightSpotImageFileName();
-		 			//System.out.println(addText);
-		 			String height="";
-		 			String width="";
-		 			String heightR="";
-		 			String widthR="";
-		 			
-		 			
-		 			if((uploadedFile.exists())&&(uploadedFile.isFile())&&(uploadedFile.length()>0)&&(imageEnc.getNumSpots()>0)) {
-
-		 				Dimension imageDimensions = org.apache.sanselan.Sanselan.getImageSize(uploadedFile);
-		 				
-		 				//iInfo.setInput(new FileInputStream(uploadedFile));
-		 				if (!extractImage.exists()) {
-		 					//System.out.println("Made it here.");
-		 					
-		 					height+=Double.toString(imageDimensions.getHeight());
-		 					width+=Double.toString(imageDimensions.getWidth());
-		 					//height+=iInfo.getHeight();
-		 					//width+=iInfo.getWidth();
-		 					
-		 					
-		 					
-		 					//System.out.println(height+"and"+width);
-		 					int intHeight=((new Double(height)).intValue());
-		 					int intWidth=((new Double(width)).intValue());
-		 					//System.out.println("Made it here: "+imageEnc.hasSpotImage+" "+imageEnc.hasRightSpotImage);
-		 					//System.gc();
-		 %>
-  <di:img width="<%=intWidth%>" height="<%=intHeight%>"
-          imgParams="rendering=speed,quality=low" expAfter="0" border="0"
-          threading="limited" output="<%=extractLocation%>">
-          <%
-          String src_ur_value=encountersDir.getAbsolutePath()+"/"+addText;
-          %>
-    <di:image srcurl="<%=src_ur_value%>"/>
-  </di:img> <%
-							}
-										}
-									//set the right file
-									
-						if((uploadedRightFile.exists())&&uploadedRightFile.isFile()&&(uploadedRightFile.length()>0)&&(imageEnc.getNumRightSpots()>0)) {
-									
-									//iInfo=new ImageInfo();
-									Dimension imageDimensions = org.apache.sanselan.Sanselan.getImageSize(uploadedRightFile);
-		 				
-									//iInfo.setInput(new FileInputStream(uploadedRightFile));
-									if (!extractRightImage.exists()) {
-										//System.out.println("Made it here.");
-										//heightR+=iInfo.getHeight();
-										//widthR+=iInfo.getWidth();
-										//System.out.println(height+"and"+width);
-										
-										heightR+=Double.toString(imageDimensions.getHeight());
-		 								widthR+=Double.toString(imageDimensions.getWidth());
-										
-										
-										int intHeightR=((new Double(heightR)).intValue());
-										int intWidthR=((new Double(widthR)).intValue());
-										System.gc();
-						%>
-  <di:img width="<%=intWidthR%>" height="<%=intHeightR%>"
-          imgParams="rendering=speed,quality=low" expAfter="0"
-          threading="limited" border="0" output="<%=extractRightLocation%>">
-          <%
-          String src_ur_value=encountersDir.getAbsolutePath()+"/"+addTextRight;
-          %>
-    <di:image srcurl="<%=src_ur_value%>"/>
-  </di:img> <%
-						}
-								}
-								
-								
-								String fileloc="/"+CommonConfiguration.getDataDirectoryName()+"/encounters/"+(imageEncNum+"/"+imageEnc.getSpotImageFileName());
-								String filelocR="/"+CommonConfiguration.getDataDirectoryName()+"/encounters/"+(imageEncNum+"/"+imageEnc.getRightSpotImageFileName());
-					%>
-
-<p class="para"><strong>Spot data image files used for
-  matching</strong><br/> <font size="-1">[<a
-  href="encounter.jsp?number=<%=imageEncNum%>&edit=spotImage#spotImage">reset
-  left or right spot data image</a>]</font><br/> <br/> <%
-  if ((imageEnc.getNumSpots() > 0)&&(uploadedFile.exists())&&(uploadedFile.isFile())) {
-%> Left-side<em>.</em><em> Click the image to view the full size
-  original. <a href="encounterSpotVisualizer.jsp?number=<%=imageEncNum%>">Click
-    here to see the left-side spots mapped to the left-side image.</a> </em><br/>
-  <a href="<%=fileloc%>"><img src="<%=fileloc%>" alt="image" width="250"></a> <%
-    }
-  %> <br/><br/> <%
-    //--
-    if ((imageEnc.getNumRightSpots() > 0)&&(uploadedRightFile.exists())&&(uploadedRightFile.isFile())) {
-  %> Right-side<em>.</em><em> Click the image to view the full
-    size original. <a
-      href="encounterSpotVisualizer.jsp?number=<%=imageEncNum%>&rightSide=true">Click
-      here to see the right-side spots mapped to the right-side image.</a> </em><br/>
-  
-  		<a href="<%=filelocR%>"><img src="<%=filelocR%>" alt="image" width="250"></a> 
-                               
-      <%
-      }
-      //--
-
-
-    }
-  %>
-
-</p>
-
-<%
 }
 catch(Exception e){
 	e.printStackTrace();
 }
+finally{
+	imageShepherd.rollbackDBTransaction();
+	imageShepherd.closeDBTransaction();
+}
+kwImagesQuery.closeAll();
 %>

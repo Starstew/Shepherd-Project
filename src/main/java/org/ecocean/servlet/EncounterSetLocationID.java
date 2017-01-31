@@ -28,8 +28,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 
 
 //Set alternateID for this encounter/sighting
@@ -52,7 +54,10 @@ public class EncounterSetLocationID extends HttpServlet {
 
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-    Shepherd myShepherd = new Shepherd();
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    Shepherd myShepherd = new Shepherd(context);
+    myShepherd.setAction("EncounterSetLocationID.class");
     //set up for response
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
@@ -87,17 +92,13 @@ public class EncounterSetLocationID extends HttpServlet {
 
       String oldCode = "";
       myShepherd.beginDBTransaction();
-      String encNum = request.getParameter("number");
+      String encNum = request.getParameter("number").trim();
       Encounter changeMe = myShepherd.getEncounter(encNum);
       setDateLastModified(changeMe);
       try {
 
         oldCode = changeMe.getLocationCode();
-        
-      if(request.getParameter("code").trim().equals("")){changeMe.setLocationCode(null);}
-      else{
-        changeMe.setLocationCode(request.getParameter("code"));
-      }
+        changeMe.setLocationCode(request.getParameter("code").trim());
         changeMe.addComments("<p><em>" + request.getRemoteUser() + " on " + (new java.util.Date()).toString() + "</em><br>Changed location code from " + oldCode + " to " + request.getParameter("code") + ".</p>");
 
       } catch (Exception le) {
@@ -108,30 +109,35 @@ public class EncounterSetLocationID extends HttpServlet {
 
       if (!locked) {
         myShepherd.commitDBTransaction();
-        out.println(ServletUtilities.getHeader(request));
+        //out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Success:</strong> Encounter location has been updated from " + oldCode + " to " + request.getParameter("code") + ".");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        //out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+        response.setStatus(HttpServletResponse.SC_OK);
+       
+        //out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+        //out.println(ServletUtilities.getFooter(context));
         String message = "Encounter #" + request.getParameter("number") + " location code has been updated from " + oldCode + " to " + request.getParameter("code") + ".";
-        ServletUtilities.informInterestedParties(request, request.getParameter("number"), message);
-      } else {
-        out.println(ServletUtilities.getHeader(request));
+        ServletUtilities.informInterestedParties(request, request.getParameter("number"), message,context);
+      } 
+      else {
+        //out.println(ServletUtilities.getHeader(request));
         out.println("<strong>Failure:</strong> Encounter location code was NOT updated because the record for this encounter is currently being modified by another user. Please try to add the location code again in a few seconds.");
-        out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-        out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-        out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-        out.println(ServletUtilities.getFooter());
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        //out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+        
+        //out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+        //out.println(ServletUtilities.getFooter(context));
 
       }
-    } else {
-      out.println(ServletUtilities.getHeader(request));
+    } 
+    else {
+      //out.println(ServletUtilities.getHeader(request));
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       out.println("<strong>Error:</strong> I don't have enough information to complete your request.");
-      out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
-      out.println("<p><a href=\"encounters/allEncounters.jsp\">View all encounters</a></font></p>");
-      out.println("<p><a href=\"allIndividuals.jsp\">View all individuals</a></font></p>");
-      out.println(ServletUtilities.getFooter());
+      //out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/encounters/encounter.jsp?number=" + request.getParameter("number") + "\">Return to encounter #" + request.getParameter("number") + "</a></p>\n");
+     
+      //out.println("<p><a href=\"individualSearchResults.jsp\">View all individuals</a></font></p>");
+      //out.println(ServletUtilities.getFooter(context));
 
     }
 

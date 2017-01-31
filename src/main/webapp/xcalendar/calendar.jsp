@@ -1,10 +1,11 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@ page contentType="text/html; charset=utf-8" language="java"
-	import="java.util.Calendar,java.util.GregorianCalendar,java.util.Properties, java.io.FileInputStream, java.io.File, java.io.FileNotFoundException, java.util.StringTokenizer, org.ecocean.*"%>
+	import="org.ecocean.servlet.ServletUtilities,java.util.Calendar,java.util.GregorianCalendar,java.util.Properties, java.io.FileInputStream, java.io.File, java.io.FileNotFoundException, java.util.StringTokenizer, org.ecocean.*"%>
 
 
 <%
+
+String context="context0";
+context=ServletUtilities.getContext(request);
 
 //handle some cache-related security
 response.setHeader("Cache-Control","no-cache"); //Forces caches to obtain a new copy of the page from the origin server
@@ -20,33 +21,18 @@ if((request.getParameter("locCode")!=null)&&(!request.getParameter("locCode").eq
 }
 
 //let's load encounterSearch.properties
-String langCode="en";
-if(session.getAttribute("langCode")!=null){langCode=(String)session.getAttribute("langCode");}
+//String langCode="en";
+String langCode=ServletUtilities.getLanguageCode(request);
+
+
 Properties calprops=new Properties();
-calprops.load(getClass().getResourceAsStream("/bundles/"+langCode+"/calendar.properties"));
-	
+//calprops.load(getClass().getResourceAsStream("/bundles/"+langCode+"/calendar.properties"));
+calprops = ShepherdProperties.getProperties("calendar.properties", langCode, context);
+
 
 
 %>
-
-<html>
-
-<head>
-
-<title><%=CommonConfiguration.getHTMLTitle() %></title>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="Description"
-	content="<%=CommonConfiguration.getHTMLDescription() %>" />
-<meta name="Keywords"
-	content="<%=CommonConfiguration.getHTMLKeywords() %>" />
-<meta name="Author" content="<%=CommonConfiguration.getHTMLAuthor() %>" />
-<link href="<%=CommonConfiguration.getCSSURLLocation(request) %>"
-	rel="stylesheet" type="text/css" />
-
-<link rel="shortcut icon"
-	href="<%=CommonConfiguration.getHTMLShortcutIcon() %>" />
-
-</head>
+ <jsp:include page="../header.jsp" flush="true"/>
 
 <script src="codebase/dhtmlxscheduler.js?v=091201"
 	type="text/javascript" charset="utf-8"></script>
@@ -81,7 +67,7 @@ calprops.load(getClass().getResourceAsStream("/bundles/"+langCode+"/calendar.pro
 		      return false;
 		});
 		scheduler.attachEvent("onClick", function (event_id, native_event_object){
-			var myLink='http://'+'<%=CommonConfiguration.getURLLocation(request)%>'+'/encounters/encounter.jsp?number='+event_id;
+			var myLink='//'+'<%=CommonConfiguration.getURLLocation(request)%>'+'/encounters/encounter.jsp?number='+event_id;
 			window.open(myLink,'mywindow','')
 		});
 		
@@ -98,7 +84,8 @@ calprops.load(getClass().getResourceAsStream("/bundles/"+langCode+"/calendar.pro
 			Calendar cal=Calendar.getInstance();
 			int nowYear = cal.get(Calendar.YEAR);
 			int nowMonth = cal.get(Calendar.MONTH)+1;
-			Shepherd myShepherd = new Shepherd();
+			Shepherd myShepherd = new Shepherd(context);
+			myShepherd.setAction("calendar.jsp");
 			myShepherd.beginDBTransaction();
 			try{
 				
@@ -132,47 +119,33 @@ calprops.load(getClass().getResourceAsStream("/bundles/"+langCode+"/calendar.pro
 	}
 </script>
 
-<body onload="init();"
-	style='padding: 0; text-align: center; margin: 0 auto; overflow: auto;'>
-<div id="wrapper" style=''>
-<div id="page" style=''>
-<jsp:include page="../header.jsp" flush="true">
-	<jsp:param name="isAdmin" value="<%=request.isUserInRole(\"admin\")%>" />
-</jsp:include>
-
-<div id="main" style='overflow: auto;'>
-
-<div id="maincol-calendar" style='overflow: auto; z-index: 0;'>
-<div id="maintext" style='overflow: auto; z-index: 0;'>
-
-<h1><%=calprops.getProperty("title") %></h1>
-
-<div align="center" id="scheduler_here" class="dhx_cal_container"
-	style='width: 810px; height: 800px; overflow: auto; margin-left: auto; margin-right: auto; position: relative; z-index: 0;'>
-<div align="center" class="dhx_cal_navline" style='z-index: 0;'>
-
-<div class="dhx_cal_prev_button" style='z-index: 0;'>&nbsp;</div>
-<div class="dhx_cal_next_button" style='z-index: 0;'>&nbsp;</div>
-
-<div class="dhx_cal_date" style='z-index: 0;'></div>
-
-<div class="dhx_cal_tab" name="month_tab"
-	style="right: 204px; z-index: 0;"></div>
 
 
-</div>
-<div class="dhx_cal_header"></div>
-<div class="dhx_cal_data" style="overflow: auto;"></div>
-</div>
+<div class="container maincontent">
 
 
-</div>
-<!-- end maintext --> <jsp:include page="../footer.jsp" flush="true" />
+	<h1><img src="../images/calendar.png" width="75px" height="75px" align="absmiddle"/> <%=calprops.getProperty("title") %></h1>
 
-</div>
-<!-- end main-wide --></div>
-<!-- end page --></div>
-<!--end wrapper -->
-</body>
-</html>
+	<div align="left" id="scheduler_here" class="dhx_cal_container"
+		style="width: 810px; height: 800px; overflow: auto; margin-right: auto; position: relative; z-index: 0;">
+		<div align="left" class="dhx_cal_navline" style='z-index: 0;'>
 
+			<div class="dhx_cal_prev_button" style='z-index: 0;'>&nbsp;</div>
+			<div class="dhx_cal_next_button" style='z-index: 0;'>&nbsp;</div>
+			<div class="dhx_cal_date" style='z-index: 0;'></div>
+
+			<div class="dhx_cal_tab" name="month_tab" style="right: 204px; z-index: 0;"></div>
+
+		</div>
+		<div class="dhx_cal_header"></div>
+		<div class="dhx_cal_data" style="overflow: auto;"></div>
+	</div>
+
+</div><!-- end maintext --> 
+
+<jsp:include page="../footer.jsp" flush="true" />
+
+<script>
+
+init();
+</script>

@@ -30,6 +30,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
@@ -57,9 +58,12 @@ public class TrackerFeed extends HttpServlet {
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
+    
+    String context="context0";
+    context=ServletUtilities.getContext(request);
     //set up the needed shepherds
-    Shepherd newEncShepherd = new Shepherd();
-    Shepherd myShepherd = new Shepherd();
+    Shepherd newEncShepherd = new Shepherd(context);
+    Shepherd myShepherd = new Shepherd(context);
 
     System.out.println("Starting POST of trackerFeed servlet...");
 
@@ -75,7 +79,10 @@ public class TrackerFeed extends HttpServlet {
 
 
     String newEncDate = newEnc.getDate();
-    String newEncShark = newEnc.isAssignedToMarkedIndividual();
+    String newEncShark = "";
+    if(newEnc.getIndividualID()!=null){
+      newEncShark=newEnc.getIndividualID();
+    }
     String newEncSize = (new Double(newEnc.getSize())).toString() + " meters";
     String newEncLocation = newEnc.getVerbatimLocality();
     newEncShepherd.rollbackDBTransaction();
@@ -115,9 +122,13 @@ public class TrackerFeed extends HttpServlet {
           myShepherd.beginDBTransaction();
           Encounter enc = myShepherd.getEncounter(mo.encounterNumber);
           moDate = enc.getDate();
-          moSex = enc.getSex();
+          
+          
+          if(enc.getSex()!=null){moSex = enc.getSex();}
+          else{moSex="unknown";}
+          
           moLocation = enc.getVerbatimLocality();
-          moIndividualName = enc.getIndividualID();
+          moIndividualName = ServletUtilities.handleNullString(enc.getIndividualID());
           if (mo.getSize() > 0) {
             moSize = Double.toString(mo.getSize());
           }

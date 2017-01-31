@@ -57,7 +57,7 @@ public class EncounterLite implements java.io.Serializable {
   private double size;
   private String sex = "Unknown";
   private String encounterNumber = "";
-  private String belongsToMarkedIndividual;
+  private String belongsToMarkedIndividual="";
   String date = "";
 
   public EncounterLite() {
@@ -66,8 +66,12 @@ public class EncounterLite implements java.io.Serializable {
   public EncounterLite(Encounter enc) {
     this.date = enc.getDate();
     this.encounterNumber = enc.getEncounterNumber();
-    this.belongsToMarkedIndividual = enc.isAssignedToMarkedIndividual();
-    this.sex = enc.getSex();
+    if(enc.getIndividualID()!=null){
+      this.belongsToMarkedIndividual = enc.getIndividualID();
+    }
+    if(enc.getSex()!=null){
+      this.sex = enc.getSex();
+    }
     //this.size = enc.getSize();
     /*if(enc.getSpots()!=null) {
         this.spots=new superSpot[enc.getSpots().length];

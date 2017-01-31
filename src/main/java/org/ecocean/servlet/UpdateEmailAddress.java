@@ -28,6 +28,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Iterator;
@@ -36,16 +37,11 @@ import java.util.Iterator;
 //adds spots to a new encounter
 public class UpdateEmailAddress extends HttpServlet {
 
-  //open a shepherd
-  Shepherd myShepherd;
+
 
 
   public void init(ServletConfig config) throws ServletException {
     super.init(config);
-
-
-    myShepherd = new Shepherd();
-
 
   }
 
@@ -60,8 +56,18 @@ public class UpdateEmailAddress extends HttpServlet {
 
 
   public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    
+   
     response.setContentType("text/html");
     PrintWriter out = response.getWriter();
+    
+    String context="context0";
+    context=ServletUtilities.getContext(request);
+    
+    //open a shepherd
+    Shepherd myShepherd=new Shepherd(context);
+    myShepherd.setAction("UpdateEmailAddress.class");
+    
 
     boolean madeChanges = false;
     boolean ok2proceed = true;
@@ -78,15 +84,15 @@ public class UpdateEmailAddress extends HttpServlet {
 
     }
 
-
+    myShepherd.beginDBTransaction();
     try {
 
 
-      myShepherd.beginDBTransaction();
-      Iterator it = myShepherd.getAllEncountersAndUnapproved();
+      
+      Iterator<Encounter> it = myShepherd.getAllEncounters();
       while (it.hasNext()) {
 
-        Encounter tempEnc = (Encounter) it.next();
+        Encounter tempEnc = it.next();
         if (tempEnc.getSubmitterEmail().indexOf(findEmail) != -1) {
           String newSubmitterEmail = tempEnc.getSubmitterEmail().replaceAll(findEmail, replaceEmail);
           tempEnc.setSubmitterEmail(newSubmitterEmail);
@@ -105,26 +111,32 @@ public class UpdateEmailAddress extends HttpServlet {
           madeChanges = true;
           numChanges++;
         }
+        if (madeChanges) {
+          myShepherd.commitDBTransaction();
+          myShepherd.beginDBTransaction();
+        }
+      }
 
-      }
-      if (madeChanges) {
-        myShepherd.commitDBTransaction();
-      } else {
         myShepherd.rollbackDBTransaction();
-      }
+
       out.println(ServletUtilities.getHeader(request));
       out.println("<strong>Success!</strong> I successfully replaced " + numChanges + " instance(s) of email address " + findEmail + " with " + replaceEmail + ".");
-      out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/appadmin/admin.jsp\">Return to Administration</a></p>\n");
-      out.println(ServletUtilities.getFooter());
+      out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/appadmin/admin.jsp\">Return to Administration</a></p>\n");
+      out.println(ServletUtilities.getFooter(context));
 
-    } catch (Exception e) {
+    } 
+    catch (Exception e) {
+      myShepherd.rollbackDBTransaction();
       //System.out.println("You really screwed this one up!");
       out.println(ServletUtilities.getHeader(request));
       out.println("<strong>Error:</strong> I encountered an exception trying to replace this email address. The exception is listed below.");
       out.println("<pre>" + e.getMessage() + "</pre>");
-      out.println("<p><a href=\"http://" + CommonConfiguration.getURLLocation(request) + "/appadmin/admin.jsp\">Return to Administration</a></p>\n");
-      out.println(ServletUtilities.getFooter());
+      out.println("<p><a href=\""+request.getScheme()+"://" + CommonConfiguration.getURLLocation(request) + "/appadmin/admin.jsp\">Return to Administration</a></p>\n");
+      out.println(ServletUtilities.getFooter(context));
       e.printStackTrace();
+    }
+    finally{
+      myShepherd.closeDBTransaction();
     }
 
     out.close();

@@ -1,6 +1,6 @@
 /*
- * The Shepherd Project - A Mark-Recapture Framework
- * Copyright (C) 2011 Jason Holmberg
+ * Wildbook - A Mark-Recapture Framework
+ * Copyright (C) 2011-2013 Jason Holmberg
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,9 +19,22 @@
 
 package org.ecocean;
 
+import java.io.IOException;
 import java.util.*;
-import java.util.GregorianCalendar;
+
 import org.ecocean.genetics.*;
+import org.ecocean.social.Relationship;
+import org.ecocean.security.Collaboration;
+import org.ecocean.media.MediaAsset;
+import org.ecocean.servlet.ServletUtilities;
+import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+
+import java.text.DecimalFormat;
+
+import org.datanucleus.api.rest.orgjson.JSONObject;
+import org.datanucleus.api.rest.orgjson.JSONArray;
+import org.datanucleus.api.rest.orgjson.JSONException;
 
 /**
  * A <code>MarkedIndividual</code> object stores the complete <code>encounter</code> data for a single marked individual in a mark-recapture study.
@@ -33,7 +46,7 @@ import org.ecocean.genetics.*;
  * @version 2.0
  * @see Encounter, Shepherd
  */
-public class MarkedIndividual {
+public class MarkedIndividual implements java.io.Serializable {
 
   //unique name of the MarkedIndividual, such as 'A-109'
   private String individualID = "";
@@ -45,7 +58,10 @@ public class MarkedIndividual {
   private String comments = "None";
 
   //sex of the MarkedIndividual
-  private String sex = "Unknown";
+  private String sex = "unknown";
+
+  private String genus = "";
+  private String specificEpithet;
 
   //unused String that allows groups of MarkedIndividuals by optional parameters
   private String seriesCode = "None";
@@ -55,10 +71,10 @@ public class MarkedIndividual {
   private String nickName = "", nickNamer = "";
 
   //Vector of approved encounter objects added to this MarkedIndividual
-  private Vector encounters = new Vector();
+  private Vector<Encounter> encounters = new Vector<Encounter>();
 
   //Vector of unapproved encounter objects added to this MarkedIndividual
-  private Vector unidentifiableEncounters = new Vector();
+  //private Vector unidentifiableEncounters = new Vector();
 
   //Vector of String filenames of additional files added to the MarkedIndividual
   private Vector dataFiles = new Vector();
@@ -67,12 +83,26 @@ public class MarkedIndividual {
   private int numberEncounters;
 
   //number of unapproved encounters (log) of this MarkedIndividual
-  private int numUnidentifiableEncounters;
+  //private int numUnidentifiableEncounters;
+
+  //number of locations for this MarkedIndividual
+  private int numberLocations;
+
+	//first sighting
+	private String dateFirstIdentified;
+
+	//points to thumbnail (usually of most recent encounter) - TODO someday will be superceded by MediaAsset magic[tm]
+	private String thumbnailUrl;
 
   //a Vector of Strings of email addresses to notify when this MarkedIndividual is modified
   private Vector interestedResearchers = new Vector();
 
   private String dateTimeCreated;
+  
+  private String dateTimeLatestSighting;
+
+  //FOR FAST QUERY PURPOSES ONLY - DO NOT MANUALLY SET
+  private String localHaplotypeReflection;
 
   private String dynamicProperties;
 
@@ -80,14 +110,22 @@ public class MarkedIndividual {
 
   private int maxYearsBetweenResightings;
 
+  private long timeOfBirth=0;
+
+  private long timeOfDeath=0;
+
   public MarkedIndividual(String individualID, Encounter enc) {
 
     this.individualID = individualID;
     encounters.add(enc);
-    dataFiles = new Vector();
+    //dataFiles = new Vector();
     numberEncounters = 1;
-    this.sex = enc.getSex();
-    numUnidentifiableEncounters = 0;
+    if(enc.getSex()!=null){
+      this.sex = enc.getSex();
+    }
+    //numUnidentifiableEncounters = 0;
+    setTaxonomyFromEncounters();
+    setSexFromEncounters();
     maxYearsBetweenResightings=0;
   }
 
@@ -104,15 +142,31 @@ public class MarkedIndividual {
    *@see  Shepherd#commitDBTransaction()
    */
 
-  public boolean addEncounter(Encounter newEncounter) {
+  public boolean addEncounter(Encounter newEncounter, String context) {
 
-    newEncounter.assignToMarkedIndividual(individualID);
-    
-      boolean ok=encounters.add(newEncounter);
-      numberEncounters++;
-      resetMaxNumYearsBetweenSightings();
-      return ok; 
-     
+      newEncounter.assignToMarkedIndividual(individualID);
+
+      //get and therefore set the haplotype if necessary
+      getHaplotype();
+
+      boolean isNew=true;
+      for(int i=0;i<encounters.size();i++) {
+        Encounter tempEnc=(Encounter)encounters.get(i);
+        if(tempEnc.getEncounterNumber().equals(newEncounter.getEncounterNumber())) {
+          isNew=false;
+        }
+      }
+
+      //prevent duplicate addition of encounters
+      if(isNew){
+        encounters.add(newEncounter);
+        numberEncounters++;
+        refreshDependentProperties(context);
+      }
+      setTaxonomyFromEncounters();  //will only set if has no value
+      setSexFromEncounters();       //likewise
+      return isNew;
+
  }
 
    /**Removes an encounter from this MarkedIndividual.
@@ -120,9 +174,10 @@ public class MarkedIndividual {
    *@return true for successful removal, false for unsuccessful - Note: this change must still be committed for it to be stored in the database
    *@see  Shepherd#commitDBTransaction()
    */
-  public boolean removeEncounter(Encounter getRidOfMe){
+  public boolean removeEncounter(Encounter getRidOfMe, String context){
 
       numberEncounters--;
+
       boolean changed=false;
       for(int i=0;i<encounters.size();i++) {
         Encounter tempEnc=(Encounter)encounters.get(i);
@@ -131,11 +186,16 @@ public class MarkedIndividual {
           i--;
           changed=true;
           }
-        }
-      resetMaxNumYearsBetweenSightings();
+      }
+      refreshDependentProperties(context);
+
+      //reset haplotype
+      localHaplotypeReflection=null;
+      getHaplotype();
+
       return changed;
   }
-  
+
 
   /**
    * Returns the total number of submitted encounters for this MarkedIndividual
@@ -146,21 +206,82 @@ public class MarkedIndividual {
     return encounters.size();
   }
 
+
+	public int refreshNumberEncounters() {
+		this.numberEncounters = encounters.size();
+		return this.numberEncounters;
+	}
+
+
+	public String getDateFirstIdentified() {
+		return this.dateFirstIdentified;
+	}
+
+	public String refreshDateFirstIdentified() {
+		Encounter[] sorted = this.getDateSortedEncounters();
+		if (sorted.length < 1) return null;
+		Encounter first = sorted[sorted.length - 1];
+		if (first.getYear() < 1) return null;
+		String d = new Integer(first.getYear()).toString();
+		if (first.getMonth() > 0) d = new Integer(first.getMonth()).toString() + "/" + d;
+		this.dateFirstIdentified = d;
+		return d;
+	}
+	
+	 public String refreshDateLastestSighting() {
+	    Encounter[] sorted = this.getDateSortedEncounters(true);
+	    if (sorted.length < 1) return null;
+	    Encounter last = sorted[0];
+	    if (last.getYear() < 1) return null;
+	    this.dateTimeLatestSighting=last.getDate();
+	    return last.getDate();
+	  }
+
+
+
+
+	public String refreshThumbnailUrl(String context) {
+		Encounter[] sorted = this.getDateSortedEncounters();
+		if (sorted.length < 1) return null;
+		this.thumbnailUrl = sorted[0].getThumbnailUrl(context);
+		return this.thumbnailUrl;
+	}
+
+/*
   public int totalLogEncounters() {
     if (unidentifiableEncounters == null) {
-      unidentifiableEncounters = new Vector();
+      //unidentifiableEncounters = new Vector();
     }
     return unidentifiableEncounters.size();
   }
+*/
 
-  public Vector returnEncountersWithGPSData() {
-    if(unidentifiableEncounters==null) {unidentifiableEncounters=new Vector();}
+  public Vector returnEncountersWithGPSData(){
+    return returnEncountersWithGPSData(false,false,"context0");
+  }
+  public Vector returnEncountersWithGPSData(boolean useLocales, boolean reverseOrder,String context) {
+    //if(unidentifiableEncounters==null) {unidentifiableEncounters=new Vector();}
     Vector haveData=new Vector();
-    for(int c=0;c<encounters.size();c++) {
-      Encounter temp=(Encounter)encounters.get(c);
+    Encounter[] myEncs=getDateSortedEncounters(reverseOrder);
+
+    Properties localesProps = new Properties();
+    if(useLocales){
+      try {
+        localesProps=ShepherdProperties.getProperties("locationIDGPS.properties", "",context);
+      }
+      catch (Exception ioe) {
+        ioe.printStackTrace();
+      }
+    }
+
+    for(int c=0;c<myEncs.length;c++) {
+      Encounter temp=myEncs[c];
       if((temp.getDWCDecimalLatitude()!=null)&&(temp.getDWCDecimalLongitude()!=null)) {
         haveData.add(temp);
-        }
+      }
+      else if(useLocales && (temp.getLocationID()!=null) && (localesProps.getProperty(temp.getLocationID())!=null)){
+        haveData.add(temp);
+      }
 
       }
 
@@ -169,21 +290,23 @@ public class MarkedIndividual {
   }
 
   public boolean isDeceased() {
-    if (unidentifiableEncounters == null) {
-      unidentifiableEncounters = new Vector();
-    }
+    //if (unidentifiableEncounters == null) {
+    //  unidentifiableEncounters = new Vector();
+    //}
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
       if (temp.getLivingStatus().equals("dead")) {
         return true;
       }
     }
+    /*
     for (int d = 0; d < numUnidentifiableEncounters; d++) {
       Encounter temp = (Encounter) unidentifiableEncounters.get(d);
       if (temp.getLivingStatus().equals("dead")) {
         return true;
       }
     }
+    */
     return false;
   }
 
@@ -217,6 +340,11 @@ public class MarkedIndividual {
     return false;
   }
 
+  /**
+   *
+   *
+   * @deprecated
+   */
   public double averageLengthInYear(int year) {
     int numLengths = 0;
     double total = 0;
@@ -234,6 +362,12 @@ public class MarkedIndividual {
     return avg;
   }
 
+
+  /**
+   *
+   *
+   * @deprecated
+   */
   public double averageMeasuredLengthInYear(int year, boolean allowGuideGuess) {
     int numLengths = 0;
     double total = 0;
@@ -304,7 +438,7 @@ public class MarkedIndividual {
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
 
-        if((temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
+        if((temp.getDateInMilliseconds()!=null)&&(temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
           return true;
         }
     }
@@ -327,9 +461,9 @@ public class MarkedIndividual {
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
 
-      if (temp.getLocationCode().startsWith(locCode)) {
+      if ((temp.getLocationID()!=null)&&(!temp.getLocationID().trim().equals(""))&&(temp.getLocationID().trim().equals(locCode))) {
 
-        if((temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
+        if((temp.getDateInMilliseconds()!=null)&&(temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
           return true;
         }
       }
@@ -348,7 +482,7 @@ public class MarkedIndividual {
     GregorianCalendar gcMax=new GregorianCalendar(endYear, endMonth, endDay);
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
-      if((temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
+      if((temp.getDateInMilliseconds()!=null)&&(temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
           return true;
       }
     }
@@ -370,7 +504,7 @@ public class MarkedIndividual {
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
 
-        if((temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())&&(temp.getNumSpots()>0)){
+        if((temp.getDateInMilliseconds()!=null)&&(temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())&&(temp.getNumSpots()>0)){
           return true;
         }
     }
@@ -438,9 +572,11 @@ public class MarkedIndividual {
     return (Encounter) encounters.get(i);
   }
 
+  /*
   public Encounter getLogEncounter(int i) {
     return (Encounter) unidentifiableEncounters.get(i);
   }
+  */
 
   /**
    * Returns the complete Vector of stored encounters for this MarkedIndividual.
@@ -452,43 +588,42 @@ public class MarkedIndividual {
     return encounters;
   }
 
-  //sorted with the most recent first
-  public Encounter[] getDateSortedEncounters(boolean includeLogEncounters) {
-    //System.out.println("Starting getDateSortedEncounters");
+    //you can choose the order of the EncounterDateComparator
+    public Encounter[] getDateSortedEncounters(boolean reverse) {
     Vector final_encs = new Vector();
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
       final_encs.add(temp);
     }
-    //System.out.println(".....added encounters...");
-    if (includeLogEncounters) {
-      int numLogs = unidentifiableEncounters.size();
-      for (int c = 0; c < numLogs; c++) {
-        Encounter temp = (Encounter) unidentifiableEncounters.get(c);
-        final_encs.add(temp);
-      }
-      //System.out.println(".....added log encounters...");
-    }
+
     int finalNum = final_encs.size();
     Encounter[] encs2 = new Encounter[finalNum];
-    //System.out.println(".....allocated array");
     for (int q = 0; q < finalNum; q++) {
       encs2[q] = (Encounter) final_encs.get(q);
     }
-    //System.out.println(".....assigned values to array...");
-
-    EncounterDateComparator dc = new EncounterDateComparator();
+    EncounterDateComparator dc = new EncounterDateComparator(reverse);
     Arrays.sort(encs2, dc);
-    //System.out.println(".....done sort...");
     return encs2;
   }
 
+  //sorted with the most recent first
+  public Encounter[] getDateSortedEncounters() {return getDateSortedEncounters(false);}
+
+
+  //preserved for legacy purposes
+ /** public Encounter[] getDateSortedEncounters(boolean includeLogEncounters) {
+    return getDateSortedEncounters();
+  }
+  */
+
+  /*
   public Vector getUnidentifiableEncounters() {
     if (unidentifiableEncounters == null) {
       unidentifiableEncounters = new Vector();
     }
     return unidentifiableEncounters;
   }
+  */
 
   /**
    * Returns any additional, general comments recorded for this MarkedIndividual as a whole.
@@ -540,9 +675,65 @@ public class MarkedIndividual {
    * Sets the sex of this MarkedIndividual.
    */
   public void setSex(String newSex) {
-    sex = newSex;
+    if(newSex!=null){sex = newSex;}
+    else{sex=null;}
+
   }
 
+    public String getGenus() {
+        return genus;
+    }
+
+    public void setGenus(String newGenus) {
+        genus = newGenus;
+    }
+
+    public String getSpecificEpithet() {
+        return specificEpithet;
+    }
+
+    public void setSpecificEpithet(String newEpithet) {
+        specificEpithet = newEpithet;
+    }
+
+    public String getTaxonomyString() {
+        return Util.taxonomyString(getGenus(), getSpecificEpithet());
+    }
+
+    ///this is really only for when dont have a value set; i.e. it should not be run after set on the instance;
+    /// therefore we dont allow that unless you pass boolean true to force it
+    ///  TODO we only pick first one - perhaps smarter would be to check all encounters and pick dominant one?
+    public String setTaxonomyFromEncounters(boolean force) {
+        if (!force && ((genus != null) || (specificEpithet != null))) return getTaxonomyString();
+        if ((encounters == null) || (encounters.size() < 1)) return getTaxonomyString();
+        for (Encounter enc : encounters) {
+            if ((enc.getGenus() != null) && (enc.getSpecificEpithet() != null)) {
+                genus = enc.getGenus();
+                specificEpithet = enc.getSpecificEpithet();
+                return getTaxonomyString();
+            }
+        }
+        return getTaxonomyString();
+    }
+    public String setTaxonomyFromEncounters() {
+        return setTaxonomyFromEncounters(false);
+    }
+
+    //similar to above
+    public String setSexFromEncounters(boolean force) {
+        if (!force && (sex != null)) return getSex();
+        if ((encounters == null) || (encounters.size() < 1)) return getSex();
+        for (Encounter enc : encounters) {
+            if (enc.getSex() != null) {
+                sex = enc.getSex();
+                return getSex();
+            }
+        }
+        return getSex();
+    }
+    public String setSexFromEncounters() {
+        return setSexFromEncounters(false);
+    }
 
   public double getLastEstimatedSize() {
     double lastSize = 0;
@@ -556,14 +747,22 @@ public class MarkedIndividual {
   }
 
   public boolean wasSightedInLocationCode(String locationCode) {
-    for (int c = 0; c < encounters.size(); c++) {
-      Encounter temp = (Encounter) encounters.get(c);
-      if (temp.getLocationCode().startsWith(locationCode)) {
-        return true;
-      }
+
+        for (int c = 0; c < encounters.size(); c++) {
+          try{
+            Encounter temp = (Encounter) encounters.get(c);
+
+            if ((temp.getLocationID()!=null)&&(!temp.getLocationID().trim().equals(""))&&(temp.getLocationID().trim().equals(locationCode))) {
+              return true;
+            }
+          }
+          catch(NullPointerException npe){return false;}
+        }
+
+        return false;
     }
-    return false;
-  }
+
+
 
   public ArrayList<String> participatesInTheseVerbatimEventDates() {
     ArrayList<String> vbed = new ArrayList<String>();
@@ -586,6 +785,16 @@ public class MarkedIndividual {
       }
       return vbed;
   }
+
+
+	public int getNumberLocations() {
+		return this.numberLocations;
+	}
+
+	public int refreshNumberLocations() {
+		this.numberLocations = this.participatesInTheseLocationIDs().size();
+		return this.numberLocations;
+	}
 
   public boolean wasSightedInVerbatimEventDate(String ved) {
     for (int c = 0; c < encounters.size(); c++) {
@@ -615,18 +824,18 @@ public class MarkedIndividual {
     int lowestYear = 5000;
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
-      if ((temp.getYear() < lowestYear)&&(temp.getYear()>-1)){ 
+      if ((temp.getYear() < lowestYear)&&(temp.getYear()>0)){
         lowestYear = temp.getYear();
       }
     }
     return lowestYear;
   }
-  
+
   public long getEarliestSightingTime() {
     long lowestTime = GregorianCalendar.getInstance().getTimeInMillis();
     for (int c = 0; c < encounters.size(); c++) {
       Encounter temp = (Encounter) encounters.get(c);
-      if (temp.getDateInMilliseconds() < lowestTime) lowestTime = temp.getDateInMilliseconds();
+      if ((temp.getDateInMilliseconds()!=null)&&(temp.getDateInMilliseconds() < lowestTime)&&(temp.getYear()>0)) lowestTime = temp.getDateInMilliseconds();
     }
     return lowestTime;
   }
@@ -640,14 +849,18 @@ public class MarkedIndividual {
   }
 
   public void addInterestedResearcher(String email) {
-    interestedResearchers.add(email);
+    if(interestedResearchers==null){interestedResearchers=new Vector();}
+      interestedResearchers.add(email);
+
   }
 
   public void removeInterestedResearcher(String email) {
-    for (int i = 0; i < interestedResearchers.size(); i++) {
-      String rName = (String) interestedResearchers.get(i);
-      if (rName.equals(email)) {
-        interestedResearchers.remove(i);
+    if(interestedResearchers!=null){
+      for (int i = 0; i < interestedResearchers.size(); i++) {
+        String rName = (String) interestedResearchers.get(i);
+        if (rName.equals(email)) {
+          interestedResearchers.remove(i);
+        }
       }
     }
   }
@@ -662,6 +875,7 @@ public class MarkedIndividual {
    * @param  dataFile  the satellite tag data file to be added
    */
   public void addDataFile(String dataFile) {
+    if(dataFiles==null){dataFiles = new Vector();}
     dataFiles.add(dataFile);
   }
 
@@ -671,14 +885,17 @@ public class MarkedIndividual {
    * @param  dataFile  The satellite data file, as a String, to be removed.
    */
   public void removeDataFile(String dataFile) {
-    dataFiles.remove(dataFile);
+    if(dataFiles!=null)
+    {
+      dataFiles.remove(dataFile);
+    }
   }
 
   public int getNumberTrainableEncounters() {
     int count = 0;
     for (int iter = 0; iter < encounters.size(); iter++) {
       Encounter enc = (Encounter) encounters.get(iter);
-      if (enc.getSpots().size() > 0) {
+      if ((enc.getSpots()!=null)&&(enc.getSpots().size() > 0)) {
         count++;
       }
     }
@@ -739,6 +956,11 @@ public class MarkedIndividual {
 
 
   //months 1-12, days, 1-31
+  /**
+   *
+   *
+   * @deprecated
+   */
   public double avgLengthInPeriod(int m_startYear, int m_startMonth, int m_endYear, int m_endMonth) {
 
     double avgLength = 0;
@@ -795,15 +1017,154 @@ public class MarkedIndividual {
     }
   }
 
+  public Double getAverageMeasurementInPeriod(int m_startYear, int m_startMonth, int m_endYear, int m_endMonth, String measurementType) {
+
+    double avgMeasurement = 0;
+    int numMeasurements = 0;
+    int endYear = m_endYear;
+    int endMonth = m_endMonth;
+    int startYear = m_startYear;
+    int startMonth = m_startMonth;
+
+    //test that start and end dates are not reversed
+    if (endYear < startYear) {
+      endYear = m_startYear;
+      endMonth = m_startMonth;
+      startYear = m_endYear;
+      startMonth = m_endMonth;
+    } else if ((endYear == startYear) && (endMonth < startMonth)) {
+      endYear = m_startYear;
+      endMonth = m_startMonth;
+      startYear = m_endYear;
+      startMonth = m_endMonth;
+    }
+
+    for (int c = 0; c < encounters.size(); c++) {
+      Encounter temp = (Encounter) encounters.get(c);
+      if(temp.hasMeasurement(measurementType)){
+        List<Measurement> measures=temp.getMeasurements();
+        if ((temp.getYear() > startYear) && (temp.getYear() < endYear)) {
+          if (temp.getMeasurement(measurementType)!=null) {
+            avgMeasurement += temp.getMeasurement(measurementType).getValue();
+            numMeasurements++;
+          }
+        }
+        else if ((temp.getYear() == startYear) && (temp.getYear() < endYear) && (temp.getMonth() >= startMonth)) {
+          if (temp.getMeasurement(measurementType)!=null){
+            avgMeasurement += temp.getMeasurement(measurementType).getValue();
+            numMeasurements++;
+          }
+        }
+        else if ((temp.getYear() > startYear) && (temp.getYear() == endYear) && (temp.getMonth() <= endMonth)) {
+          if (temp.getMeasurement(measurementType)!=null) {
+            avgMeasurement += temp.getMeasurement(measurementType).getValue();
+            numMeasurements++;
+          }
+        }
+        else if ((temp.getYear() >= startYear) && (temp.getYear() <= endYear) && (temp.getMonth() >= startMonth) && (temp.getMonth() <= endMonth)) {
+          if (temp.getMeasurement(measurementType)!=null) {
+            avgMeasurement += temp.getMeasurement(measurementType).getValue();
+            numMeasurements++;
+          }
+        }
+      }
+    }
+    if (numMeasurements > 0) {
+      return (new Double(avgMeasurement / numMeasurements));
+    }
+    else {
+      return null;
+    }
+  }
+
+  public Double getAverageBiologicalMeasurementInPeriod(int m_startYear, int m_startMonth, int m_endYear, int m_endMonth, String measurementType) {
+
+    double avgMeasurement = 0;
+    int numMeasurements = 0;
+    int endYear = m_endYear;
+    int endMonth = m_endMonth;
+    int startYear = m_startYear;
+    int startMonth = m_startMonth;
+
+    //test that start and end dates are not reversed
+    if (endYear < startYear) {
+      endYear = m_startYear;
+      endMonth = m_startMonth;
+      startYear = m_endYear;
+      startMonth = m_endMonth;
+    } else if ((endYear == startYear) && (endMonth < startMonth)) {
+      endYear = m_startYear;
+      endMonth = m_startMonth;
+      startYear = m_endYear;
+      startMonth = m_endMonth;
+    }
+
+    for (int c = 0; c < encounters.size(); c++) {
+      Encounter enc = (Encounter) encounters.get(c);
+      if((enc.getTissueSamples()!=null)&&(enc.getTissueSamples().size()>0)){
+        List<TissueSample> samples=enc.getTissueSamples();
+        int numTissueSamples=samples.size();
+        for(int h=0;h<numTissueSamples;h++){
+          TissueSample temp=samples.get(h);
+
+          if(temp.hasMeasurement(measurementType)){
+            List<BiologicalMeasurement> measures=temp.getBiologicalMeasurements();
+            if ((enc.getYear() > startYear) && (enc.getYear() < endYear)) {
+              if (temp.getBiologicalMeasurement(measurementType)!=null) {
+                avgMeasurement += temp.getBiologicalMeasurement(measurementType).getValue();
+                numMeasurements++;
+              }
+            }
+            else if ((enc.getYear() == startYear) && (enc.getYear() < endYear) && (enc.getMonth() >= startMonth)) {
+              if (temp.getBiologicalMeasurement(measurementType)!=null){
+                avgMeasurement += temp.getBiologicalMeasurement(measurementType).getValue();
+                numMeasurements++;
+              }
+            }
+            else if ((enc.getYear() > startYear) && (enc.getYear() == endYear) && (enc.getMonth() <= endMonth)) {
+              if (temp.getBiologicalMeasurement(measurementType)!=null) {
+                avgMeasurement += temp.getBiologicalMeasurement(measurementType).getValue();
+                numMeasurements++;
+              }
+            }
+            else if ((enc.getYear() >= startYear) && (enc.getYear() <= endYear) && (enc.getMonth() >= startMonth) && (enc.getMonth() <= endMonth)) {
+              if (temp.getBiologicalMeasurement(measurementType)!=null) {
+                avgMeasurement += temp.getBiologicalMeasurement(measurementType).getValue();
+                numMeasurements++;
+              }
+            }
+          }
+        }
+      }
+    }
+    if (numMeasurements > 0) {
+      return (new Double(avgMeasurement / numMeasurements));
+    }
+    else {
+      return null;
+    }
+  }
+
   public String getDateTimeCreated() {
     if (dateTimeCreated != null) {
       return dateTimeCreated;
     }
     return "";
   }
+  
+  public String getDateLatestSighting() {
+    if (dateTimeLatestSighting != null) {
+      return dateTimeLatestSighting;
+    }
+    return "";
+  }
 
   public void setDateTimeCreated(String time) {
     dateTimeCreated = time;
+  }
+  
+  public void setDateTimeLatestSighting(String time) {
+    dateTimeLatestSighting = time;
   }
 
   public void setAlternateID(String newID) {
@@ -917,9 +1278,9 @@ public class MarkedIndividual {
     int numEncounters = encounters.size();
     for (int i = 0; i < numEncounters; i++) {
       Encounter enc = (Encounter) encounters.get(i);
-      Iterator it = myShepherd.getAllKeywords();
+      Iterator<Keyword> it = myShepherd.getAllKeywords();
       while (it.hasNext()) {
-        Keyword word = (Keyword) it.next();
+        Keyword word = it.next();
         if (enc.hasKeyword(word) && (!al.contains(word))) {
           al.add(word);
         }
@@ -927,15 +1288,35 @@ public class MarkedIndividual {
     }
     return al;
   }
-  
+
   public ArrayList<TissueSample> getAllTissueSamples() {
     ArrayList<TissueSample> al = new ArrayList<TissueSample>();
+    if(encounters!=null){
     int numEncounters = encounters.size();
     for (int i = 0; i < numEncounters; i++) {
       Encounter enc = (Encounter) encounters.get(i);
-      List<TissueSample> list = enc.getTissueSamples();
-      if((list!=null)&&(list.size()>0)){
-        al.addAll(list);
+      if(enc.getTissueSamples()!=null){
+        List<TissueSample> list = enc.getTissueSamples();
+        if(list.size()>0){
+          al.addAll(list);
+        }
+      }
+    }
+    return al;
+    }
+    return null;
+  }
+
+  public ArrayList<SinglePhotoVideo> getAllSinglePhotoVideo() {
+    ArrayList<SinglePhotoVideo> al = new ArrayList<SinglePhotoVideo>();
+    int numEncounters = encounters.size();
+    for (int i = 0; i < numEncounters; i++) {
+      Encounter enc = (Encounter) encounters.get(i);
+      if(enc.getSinglePhotoVideo()!=null){
+        List<SinglePhotoVideo> list = enc.getSinglePhotoVideo();
+        if(list.size()>0){
+          al.addAll(list);
+        }
       }
     }
     return al;
@@ -986,12 +1367,15 @@ public class MarkedIndividual {
     int highestYear=0;
     for(int c=0;c<encounters.size();c++) {
       Encounter temp=(Encounter)encounters.get(c);
-      if((temp.getYear()<lowestYear)&&(temp.getYear()>-1)) lowestYear=temp.getYear();
+      if((temp.getYear()<lowestYear)&&(temp.getYear()>0)) lowestYear=temp.getYear();
       if(temp.getYear()>highestYear) highestYear=temp.getYear();
       maxYears=highestYear-lowestYear;
+      if(maxYears<0){maxYears=0;}
       }
     maxYearsBetweenResightings=maxYears;
     }
+  
+
 
   public String sidesSightedInPeriod(int m_startYear, int m_startMonth, int m_startDay, int m_endYear, int m_endMonth, int m_endDay, String locCode) {
     int endYear = m_endYear;
@@ -1001,11 +1385,12 @@ public class MarkedIndividual {
     int startMonth = m_startMonth;
     int startDay = m_startDay;
 
-    GregorianCalendar gcMin=new GregorianCalendar(startYear, startMonth, startDay);
-    GregorianCalendar gcMax=new GregorianCalendar(endYear, endMonth, endDay);
+    GregorianCalendar gcMin=new GregorianCalendar(startYear, startMonth-1, startDay);
+    GregorianCalendar gcMax=new GregorianCalendar(endYear, endMonth-1, endDay);
 
     boolean left=false;
     boolean right=false;
+    boolean leftRightTogether=false;
 
 
     for (int c = 0; c < encounters.size(); c++) {
@@ -1013,55 +1398,174 @@ public class MarkedIndividual {
 
       if (temp.getLocationCode().startsWith(locCode)) {
 
-        if((temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
+        if((temp.getDateInMilliseconds()!=null)&&(temp.getDateInMilliseconds()>=gcMin.getTimeInMillis())&&(temp.getDateInMilliseconds()<=gcMax.getTimeInMillis())){
           if(temp.getNumRightSpots()>0){right=true;}
           if(temp.getNumSpots()>0){left=true;}
+          if((temp.getNumRightSpots()>0)&&(temp.getNumSpots()>0)){leftRightTogether=true;}
         }
       }
     }
-    if(left&&right){return "3";}
+    if(leftRightTogether){return "3";}
+    else if(left&&right){return "4";}
     else if(left){return "1";}
     else if(right){return "2";}
     else{
       return "0";
     }
   }
-/**
-Returns the first genus-species pair found in the Encounter objects for this MarkedIndividual.
-@return a String if found or null if no genus-species pair is found
-*/
-public String getGenusSpecies(){
-	    for (int c = 0; c < encounters.size(); c++) {
-	      	Encounter temp = (Encounter) encounters.get(c);
-			if((temp.getGenus()!=null)&&(temp.getSpecificEpithet()!=null)){return (temp.getGenus()+" "+temp.getSpecificEpithet());}
 
-    	}
-		return null;
+    public String getGenusSpecies(){
+        return getTaxonomyString();
+    }
 
-}
 
 /**
 Returns the first haplotype found in the Encounter objects for this MarkedIndividual.
 @return a String if found or null if no haplotype is found
 */
 public String getHaplotype(){
-      for (int c = 0; c < encounters.size(); c++) {
-        Encounter temp = (Encounter) encounters.get(c);
-        if(temp.getHaplotype()!=null){return temp.getHaplotype();}
-      }
-    return null;
+
+    return localHaplotypeReflection;
 
 }
+
+
+
+public String getGeneticSex(){
+  for (int c = 0; c < encounters.size(); c++) {
+    Encounter temp = (Encounter) encounters.get(c);
+    if(temp.getGeneticSex()!=null){return temp.getGeneticSex();}
+  }
+return null;
+
+}
+
+public boolean hasLocusAndAllele(String locus, Integer alleleValue){
+  ArrayList<TissueSample> samples=getAllTissueSamples();
+  int numSamples=samples.size();
+  for(int i=0;i<numSamples;i++){
+      TissueSample sample=samples.get(i);
+      if(sample.getGeneticAnalyses()!=null){
+        List<GeneticAnalysis> analyses=sample.getGeneticAnalyses();
+        int numAnalyses=analyses.size();
+        for(int e=0;e<numAnalyses;e++){
+          GeneticAnalysis ga=analyses.get(e);
+          if(ga.getAnalysisType().equals("MicrosatelliteMarkers")){
+            MicrosatelliteMarkersAnalysis msa=(MicrosatelliteMarkersAnalysis)ga;
+            if(msa.getLocus(locus)!=null){
+               Locus l=msa.getLocus(locus);
+               if(l.hasAllele(alleleValue)){return true;}
+            }
+          }
+        }
+      }
+  }
+  return false;
+}
+
+public ArrayList<Integer> getAlleleValuesForLocus(String locus){
+  ArrayList<Integer> matchingValues=new ArrayList<Integer>();
+  ArrayList<TissueSample> samples=getAllTissueSamples();
+  int numSamples=samples.size();
+  for(int i=0;i<numSamples;i++){
+      TissueSample sample=samples.get(i);
+      if(sample.getGeneticAnalyses()!=null){
+        List<GeneticAnalysis> analyses=sample.getGeneticAnalyses();
+        int numAnalyses=analyses.size();
+        for(int e=0;e<numAnalyses;e++){
+          GeneticAnalysis ga=analyses.get(e);
+          if(ga.getAnalysisType().equals("MicrosatelliteMarkers")){
+            MicrosatelliteMarkersAnalysis msa=(MicrosatelliteMarkersAnalysis)ga;
+            if(msa.getLocus(locus)!=null){
+               Locus l=msa.getLocus(locus);
+               if((l.getAllele0()!=null)){matchingValues.add(l.getAllele0());}
+               if((l.getAllele1()!=null)){matchingValues.add(l.getAllele1());}
+               if((l.getAllele2()!=null)){matchingValues.add(l.getAllele2());}
+               if((l.getAllele3()!=null)){matchingValues.add(l.getAllele3());}
+            }
+          }
+        }
+      }
+  }
+  return matchingValues;
+}
+
+public boolean hasLocus(String locus){
+  ArrayList<TissueSample> samples=getAllTissueSamples();
+  int numSamples=samples.size();
+  for(int i=0;i<numSamples;i++){
+      TissueSample sample=samples.get(i);
+      if(sample.getGeneticAnalyses()!=null){
+        List<GeneticAnalysis> analyses=sample.getGeneticAnalyses();
+        int numAnalyses=analyses.size();
+        for(int e=0;e<numAnalyses;e++){
+          GeneticAnalysis ga=analyses.get(e);
+          if(ga.getAnalysisType().equals("MicrosatelliteMarkers")){
+            MicrosatelliteMarkersAnalysis msa=(MicrosatelliteMarkersAnalysis)ga;
+            if(msa.getLocus(locus)!=null){
+               return true;
+            }
+          }
+        }
+      }
+  }
+  return false;
+}
+
+
+
+
+
+public boolean hasMsMarkers(){
+  ArrayList<TissueSample> samples=getAllTissueSamples();
+  if(samples!=null){
+  int numSamples=samples.size();
+  for(int i=0;i<numSamples;i++){
+      TissueSample sample=samples.get(i);
+      if(sample.getGeneticAnalyses()!=null){
+        List<GeneticAnalysis> analyses=sample.getGeneticAnalyses();
+        int numAnalyses=analyses.size();
+        for(int e=0;e<numAnalyses;e++){
+          GeneticAnalysis ga=analyses.get(e);
+          if(ga.getAnalysisType().equals("MicrosatelliteMarkers")){
+            return true;
+          }
+        }
+      }
+  }
+  }
+  return false;
+}
+
+public boolean hasGeneticSex(){
+  ArrayList<TissueSample> samples=getAllTissueSamples();
+  int numSamples=samples.size();
+  for(int i=0;i<numSamples;i++){
+      TissueSample sample=samples.get(i);
+      if(sample.getGeneticAnalyses()!=null){
+        List<GeneticAnalysis> analyses=sample.getGeneticAnalyses();
+        int numAnalyses=analyses.size();
+        for(int e=0;e<numAnalyses;e++){
+          GeneticAnalysis ga=analyses.get(e);
+          if(ga.getAnalysisType().equals("SexAnalysis")){
+            return true;
+          }
+        }
+      }
+  }
+  return false;
+}
+
 
 /**
 *Obtains the email addresses of all submitters, photographs, and others to notify.
 *@return ArrayList of all emails to inform
 */
-public ArrayList getAllEmailsToUpdate(){
+public List<String> getAllEmailsToUpdate(){
 	ArrayList notifyUs=new ArrayList();
 
 	int numEncounters=encounters.size();
-	int numUnidetifiableEncounters=unidentifiableEncounters.size();
+	//int numUnidetifiableEncounters=unidentifiableEncounters.size();
 
 	//process encounters
 	for(int i=0;i<numEncounters;i++){
@@ -1102,6 +1606,7 @@ public ArrayList getAllEmailsToUpdate(){
 
 	}
 
+	/*
 		//process log encounters
 		for(int i=0;i<numUnidentifiableEncounters;i++){
 			Encounter enc=(Encounter)unidentifiableEncounters.get(i);
@@ -1140,11 +1645,323 @@ public ArrayList getAllEmailsToUpdate(){
 			}
 
 	}
+		*/
 
 	return notifyUs;
 
 }
 
-public void removeLogEncounter(Encounter enc){if(unidentifiableEncounters.contains(enc)){unidentifiableEncounters.remove(enc);}}
+//public void removeLogEncounter(Encounter enc){if(unidentifiableEncounters.contains(enc)){unidentifiableEncounters.remove(enc);}}
+
+public float distFrom(float lat1, float lng1, float lat2, float lng2) {
+  double earthRadius = 3958.75;
+  double dLat = Math.toRadians(lat2-lat1);
+  double dLng = Math.toRadians(lng2-lng1);
+  double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+             Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+             Math.sin(dLng/2) * Math.sin(dLng/2);
+  double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  double dist = earthRadius * c;
+
+  int meterConversion = 1609;
+
+  return new Float(dist * meterConversion).floatValue();
+}
+
+public Float getMaxDistanceBetweenTwoSightings(){
+  int numEncs=encounters.size();
+  Float maxDistance=new Float(0);
+  if(numEncs>1){
+  for(int y=0;y<numEncs;y++){
+    Encounter thisEnc=(Encounter)encounters.get(y);
+    if((thisEnc.getLatitudeAsDouble()!=null)&&(thisEnc.getLongitudeAsDouble()!=null)){
+    for(int z=(y+1);z<numEncs;z++){
+      Encounter nextEnc=(Encounter)encounters.get(z);
+      if((nextEnc.getLatitudeAsDouble()!=null)&&(nextEnc.getLongitudeAsDouble()!=null)){
+        try{
+          Float tempMaxDistance=distFrom(new Float(thisEnc.getLatitudeAsDouble()), new Float(thisEnc.getLongitudeAsDouble()), new Float(nextEnc.getLatitudeAsDouble()), new Float(nextEnc.getLongitudeAsDouble()));
+          if(tempMaxDistance>maxDistance){maxDistance=tempMaxDistance;}
+        }
+        catch(Exception e){e.printStackTrace();System.out.println("Hit an NPE when calculating distance between: "+thisEnc.getCatalogNumber()+" and "+nextEnc.getCatalogNumber());}
+      }
+    }
+  }
+  }
+  }
+  return maxDistance;
+}
+
+public long getMaxTimeBetweenTwoSightings(){
+  int numEncs=encounters.size();
+  long maxTime=0;
+  if(numEncs>1){
+  for(int y=0;y<numEncs;y++){
+    Encounter thisEnc=(Encounter)encounters.get(y);
+    for(int z=(y+1);z<numEncs;z++){
+      Encounter nextEnc=(Encounter)encounters.get(z);
+      if((thisEnc.getDateInMilliseconds()!=null)&&(nextEnc.getDateInMilliseconds()!=null)){
+        long tempMaxTime=Math.abs(thisEnc.getDateInMilliseconds().longValue()-nextEnc.getDateInMilliseconds().longValue());
+        if(tempMaxTime>maxTime){maxTime=tempMaxTime;}
+      }
+    }
+  }
+  }
+  return maxTime;
+}
+
+public ArrayList<String> getAllAssignedUsers(){
+  ArrayList<String> allIDs = new ArrayList<String>();
+
+   //add an alt IDs for the individual's encounters
+   int numEncs=encounters.size();
+   for(int c=0;c<numEncs;c++) {
+     Encounter temp=(Encounter)encounters.get(c);
+     if((temp.getAssignedUsername()!=null)&&(!allIDs.contains(temp.getAssignedUsername()))) {allIDs.add(temp.getAssignedUsername());}
+   }
+
+   return allIDs;
+ }
+
+/**
+ * DO NOT SET DIRECTLY!!
+ *
+ * @param myDepth
+ */
+public void doNotSetLocalHaplotypeReflection(String myHaplo) {
+  if(myHaplo!=null){localHaplotypeReflection = myHaplo;}
+  else{localHaplotypeReflection = null;}
+}
+
+public long getTimeOfBirth(){return timeOfBirth;}
+public long getTimeofDeath(){return timeOfDeath;}
+
+public void setTimeOfBirth(long newTime){timeOfBirth=newTime;}
+public void setTimeOfDeath(long newTime){timeOfDeath=newTime;}
+
+public List<Relationship> getAllRelationships(Shepherd myShepherd){
+  return myShepherd.getAllRelationshipsForMarkedIndividual(individualID);
+}
+
+public String getFomattedMSMarkersString(String[] loci){
+  StringBuffer sb=new StringBuffer();
+  int numLoci=loci.length;
+  for(int i=0;i<numLoci;i++){
+    ArrayList<Integer> alleles=getAlleleValuesForLocus(loci[i]);
+    if((alleles.size()>0)&&(alleles.get(0)!=null)){sb.append(alleles.get(0)+" ");}
+    else{sb.append("--- ");}
+    if((alleles.size()>=2)&&(alleles.get(1)!=null)){sb.append(alleles.get(1)+" ");}
+    else{sb.append("--- ");}
+  }
+  return sb.toString();
+}
+
+public Float getMinDistanceBetweenTwoMarkedIndividuals(MarkedIndividual otherIndy){
+
+  DecimalFormat df = new DecimalFormat("#.#");
+  Float minDistance=new Float(1000000);
+  if((encounters!=null)&&(encounters.size()>0)&&(otherIndy.getEncounters()!=null)&&(otherIndy.getEncounters().size()>0)){
+  int numEncs=encounters.size();
+  int numOtherEncs=otherIndy.getEncounters().size();
+
+  if(numEncs>0){
+  for(int y=0;y<numEncs;y++){
+    Encounter thisEnc=(Encounter)encounters.get(y);
+    if((thisEnc.getLatitudeAsDouble()!=null)&&(thisEnc.getLongitudeAsDouble()!=null)){
+    for(int z=0;z<numOtherEncs;z++){
+      Encounter nextEnc=otherIndy.getEncounter(z);
+      if((nextEnc.getLatitudeAsDouble()!=null)&&(nextEnc.getLongitudeAsDouble()!=null)){
+        try{
+          Float tempMinDistance=distFrom(new Float(thisEnc.getLatitudeAsDouble()), new Float(thisEnc.getLongitudeAsDouble()), new Float(nextEnc.getLatitudeAsDouble()), new Float(nextEnc.getLongitudeAsDouble()));
+          if(tempMinDistance<minDistance){minDistance=tempMinDistance;}
+        }
+        catch(Exception e){e.printStackTrace();System.out.println("Hit an NPE when calculating distance between: "+thisEnc.getCatalogNumber()+" and "+nextEnc.getCatalogNumber());}
+      }
+    }
+  }
+  }
+  }
+  }
+  if(minDistance>999999)minDistance=new Float(-1);
+  return minDistance;
+}
+
+
+	//convenience function to Collaboration permissions
+	public boolean canUserAccess(HttpServletRequest request) {
+		return Collaboration.canUserAccessMarkedIndividual(this, request);
+	}
+
+
+	public JSONObject sanitizeJson(HttpServletRequest request, JSONObject jobj) throws JSONException {
+            if (this.canUserAccess(request)) return jobj;
+            jobj.remove("numberLocations");
+            jobj.remove("sex");
+            jobj.remove("numberEncounters");
+            jobj.remove("timeOfDeath");
+            jobj.remove("timeOfBirth");
+            jobj.remove("maxYearsBetweenResightings");
+            //jobj.remove("numUnidentifiableEncounters");
+            jobj.remove("nickName");
+            jobj.remove("nickNamer");
+            jobj.put("_sanitized", true);
+            return jobj;
+        }
+
+  // Returns a somewhat rest-like JSON object containing the metadata
+  public JSONObject uiJson(HttpServletRequest request) throws JSONException {
+    JSONObject jobj = new JSONObject();
+    jobj.put("individualID", this.getIndividualID());
+    jobj.put("url", this.getUrl(request));
+    jobj.put("sex", this.getSex());
+    jobj.put("nickname", this.nickName);
+
+    Vector<String> encIDs = new Vector<String>();
+    for (Encounter enc : this.encounters) {
+      encIDs.add(enc.getCatalogNumber());
+    }
+    jobj.put("encounterIDs", encIDs.toArray());
+    return sanitizeJson(request, jobj);
+  }
+
+  public String getUrl(HttpServletRequest request) {
+    return request.getScheme()+"://" + CommonConfiguration.getURLLocation(request)+"/individuals.jsp?number="+this.getIndividualID();
+  }
+
+
+  /**
+  * returns an array of the MediaAsset sanitized JSON, because whenever UI queries our DB (regardless of class query),
+  * all they want in return are MediaAssets
+  * TODO: decorate with metadata
+  **/
+  public org.datanucleus.api.rest.orgjson.JSONArray sanitizeMedia(HttpServletRequest request) throws org.datanucleus.api.rest.orgjson.JSONException {
+    org.datanucleus.api.rest.orgjson.JSONArray resultArray = new org.datanucleus.api.rest.orgjson.JSONArray();
+    for(int i=0;i<encounters.size();i++) {
+      Encounter tempEnc=(Encounter)encounters.get(i);
+      Util.concatJsonArrayInPlace(resultArray, tempEnc.sanitizeMedia(request));
+    }
+    return resultArray;
+  }
+
+
+  public ArrayList<org.datanucleus.api.rest.orgjson.JSONObject> getExemplarImages(HttpServletRequest req) throws JSONException {
+    ArrayList<org.datanucleus.api.rest.orgjson.JSONObject> al=new ArrayList<org.datanucleus.api.rest.orgjson.JSONObject>();
+    //boolean haveProfilePhoto=false;
+    for (Encounter enc : this.getDateSortedEncounters()) {
+      //if((enc.getDynamicPropertyValue("PublicView")==null)||(enc.getDynamicPropertyValue("PublicView").equals("Yes"))){
+        ArrayList<Annotation> anns = enc.getAnnotations();
+        if ((anns == null) || (anns.size() < 1)) {
+          continue;
+        }
+        for (Annotation ann: anns) {
+          //if (!ann.isTrivial()) continue;
+          MediaAsset ma = ann.getMediaAsset();
+          if (ma != null) {
+            //JSONObject j = new JSONObject();
+            JSONObject j = ma.sanitizeJson(req, new JSONObject());
+            
+            
+            
+            if ((j!=null)&&(ma.getMimeTypeMajor()!=null)&&(ma.getMimeTypeMajor().equals("image"))) {
+              
+              
+              //ok, we have a viable candidate
+              
+              //put ProfilePhotos at the beginning
+              if(ma.hasKeyword("ProfilePhoto")){al.add(0, j);}
+              //do nothing and don't include it if it has NoProfilePhoto keyword
+              else if(ma.hasKeyword("NoProfilePhoto")){}
+              //otherwise, just add it to the bottom of the stack
+              else{
+                al.add(j);
+              }
+              
+            }
+            
+            
+          }
+        }
+    //}
+    }
+    return al;
+
+  }
+  
+  public org.datanucleus.api.rest.orgjson.JSONObject getExemplarImage(HttpServletRequest req) throws JSONException {
+    
+    ArrayList<org.datanucleus.api.rest.orgjson.JSONObject> al=getExemplarImages(req);
+    if(al.size()>0){return al.get(0);}
+    return new JSONObject();
+    
+
+  }
+  
+
+  // WARNING! THIS IS ONLY CORRECT IF ITS LOGIC CORRESPONDS TO getExemplarImage
+  public String getExemplarPhotographer() {
+    for (Encounter enc : this.getDateSortedEncounters()) {
+      if((enc.getDynamicPropertyValue("PublicView")==null)||(enc.getDynamicPropertyValue("PublicView").equals("Yes"))){
+        if((enc.getDynamicPropertyValue("ShowPhotographer")==null)||(enc.getDynamicPropertyValue("ShowPhotographer").equals("Yes"))){return enc.getPhotographerName();}
+        else{return "";}
+
+      }
+    }
+    return "";
+  }
+
+
+	//this simple version makes some assumptions: you already have list of collabs, and it is not visible
+	public String collaborationLockHtml(HttpServletRequest request) {
+		String context = "context0";
+		context = ServletUtilities.getContext(request);
+		Shepherd myShepherd = new Shepherd(context);
+		myShepherd.setAction("MarkedIndividual.class");
+		myShepherd.beginDBTransaction();
+
+		List<Collaboration> collabs = Collaboration.collaborationsForCurrentUser(request);
+  	ArrayList<String> uids = this.getAllAssignedUsers();
+  	ArrayList<String> open = new ArrayList<String>();
+		String collabClass = "pending";
+		String data = "";
+
+		for (String u : uids) {
+			Collaboration c = Collaboration.findCollaborationWithUser(u, collabs);
+			if ((c == null) || (c.getState() == null)) {
+				User user = myShepherd.getUser(u);
+				String fullName = u;
+				if (user.getFullName()!=null) fullName = user.getFullName();
+				open.add(u);
+				data += "," + u + ":" + fullName.replace(",", " ").replace(":", " ").replace("\"", " ");
+			}
+		}
+		if (open.size() > 0) {
+			collabClass = "new";
+			data = data.substring(1);
+		}
+		myShepherd.rollbackDBTransaction();
+		myShepherd.closeDBTransaction();
+		return "<div class=\"row-lock " + collabClass + " collaboration-button\" data-multiuser=\"" + data + "\">&nbsp;</div>";
+	}
+
+
+
+	public void refreshDependentProperties(String context) {
+		this.refreshNumberEncounters();
+		this.refreshNumberLocations();
+		this.resetMaxNumYearsBetweenSightings();
+		this.refreshDateFirstIdentified();
+		this.refreshThumbnailUrl(context);
+		this.refreshDateLastestSighting();
+	}
+
+
+    public String toString() {
+        return new ToStringBuilder(this)
+                .append("individualID", individualID)
+                .append("species", getGenusSpecies())
+                .append("sex", getSex())
+                .append("numEncounters", numberEncounters)
+                .append("numLocations", numberLocations)
+                .toString();
+    }
 
 }

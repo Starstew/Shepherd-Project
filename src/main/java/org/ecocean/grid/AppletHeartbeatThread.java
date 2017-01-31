@@ -26,7 +26,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
+//import java.net.URLConnection;
+import javax.net.ssl.HttpsURLConnection;
 
 /**
  * COmment
@@ -66,7 +67,7 @@ public class AppletHeartbeatThread implements Runnable, ISharkGridThread {
         sendHeartbeat(appletID);
         Thread.sleep(90000);
       } catch (Exception e) {
-        System.out.println("Heartbeat thread registering an exception while trying to sleep!");
+        System.out.println("     Heartbeat thread registering an exception while trying to sleep!");
       }
     }
   }
@@ -81,29 +82,61 @@ public class AppletHeartbeatThread implements Runnable, ISharkGridThread {
 
 
   private void sendHeartbeat(String appletID) {
+    
+    
+    //prep our streaming variables
+    URL u=null;
+    InputStream inputStreamFromServlet=null;
+    BufferedReader in=null;
+    HttpsURLConnection finishConnection=null;
+    
     try {
-      System.out.println("...sending heartbeat...thump...thump...");
-      URL u = new URL(rootURL + "/GridHeartbeatReceiver?nodeIdentifier=" + appletID + "&numProcessors=" + numProcessors + "&version=" + version);
-      URLConnection finishConnection = u.openConnection();
+      
+      u = new URL(rootURL + "/GridHeartbeatReceiver?nodeIdentifier=" + appletID + "&numProcessors=" + numProcessors + "&version=" + version);
+      
+      System.out.println("...sending heartbeat...thump...thump...to: "+u.toString());
+      
+      finishConnection = (HttpsURLConnection)u.openConnection();
 
-      InputStream inputStreamFromServlet = finishConnection.getInputStream();
-      BufferedReader in = new BufferedReader(new InputStreamReader(inputStreamFromServlet));
+      inputStreamFromServlet = finishConnection.getInputStream();
+      in = new BufferedReader(new InputStreamReader(inputStreamFromServlet));
       String line = in.readLine();
-      in.close();
+      //in.close();
+      //inputStreamFromServlet.close();
+
 
       //process the returned line however needed
 
 
-    } catch (MalformedURLException mue) {
+    } 
+    catch (MalformedURLException mue) {
       System.out.println("!!!!!I hit a MalformedURLException in the heartbeat thread!!!!!");
       mue.printStackTrace();
+      System.exit(0);
 
-    } catch (IOException ioe) {
-      System.out.println("!!!!!I hit a MalformedURLException in the heartbeat thread!!!!!");
+    } 
+    catch (IOException ioe) {
+      System.out.println("!!!!!I hit an IO exception in the heartbeat thread!!!!!");
       ioe.printStackTrace();
-    } catch (Exception e) {
-      System.out.println("!!!!!I hit a MalformedURLException in the heartbeat thread!!!!!");
+      System.exit(0);
+    } 
+    catch (Exception e) {
+      System.out.println("!!!!!I hit an Exception in the heartbeat thread!!!!!");
       e.printStackTrace();
+      System.exit(0);
+    }
+    finally{
+      try{
+        if(inputStreamFromServlet!=null)inputStreamFromServlet.close();
+        if(in!=null)in.close();
+        in=null;
+        inputStreamFromServlet=null;
+        finishConnection=null;
+        u=null;
+      }
+      catch(Exception ex){
+        System.exit(0);
+      }
     }
   }
 
